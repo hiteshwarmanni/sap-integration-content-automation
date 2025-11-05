@@ -17,7 +17,7 @@ function HomePage() {
   );
 }
 
-// --- 👇 Download Page (Updated) ---
+// --- 👇 Download Page (Updated to Single Column) ---
 function DownloadPage() {
   // --- Create initial empty state for reset ---
   const initialFormState = {
@@ -30,7 +30,7 @@ function DownloadPage() {
     clientSecret: ''
   };
 
-  const [formData, setFormData] = useState(initialFormState); // <-- Use initial state
+  const [formData, setFormData] = useState(initialFormState);
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,14 +45,14 @@ function DownloadPage() {
     }));
   };
 
-  // --- 👇 Form submission handler (Updated) ---
+  // --- Form submission handler ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     setSuccessMessage('');
 
-    // 1. Log the activity (no change)
+    // 1. Log the activity
     try {
       await axios.post(`${API_URL}/api/log`, {
         projectName: formData.projectName,
@@ -76,12 +76,9 @@ function DownloadPage() {
       const link = document.createElement('a');
       link.href = url;
       
-      // --- 👇 NEW: Dynamic Filename Logic ---
       const { projectName, environment } = formData;
       const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
       const timestamp = new Date().toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
-      
-      // --- 👇 THIS IS THE FILENAME CHANGE ---
       const filename = `${projectName}_${environment}_configurations_${date}_${timestamp}.csv`;
       
       link.setAttribute('download', filename);
@@ -95,7 +92,6 @@ function DownloadPage() {
       setSuccessMessage(`Success! File downloaded as: ${filename}`);
 
     } catch (apiError) {
-      // ... (error handling is the same) ...
       console.error('Download Error:', apiError);
       if (apiError.response && apiError.response.data) {
         const errorText = await apiError.response.data.text();
@@ -109,7 +105,7 @@ function DownloadPage() {
     }
   };
 
-  // --- 👇 NEW: Reset Button Handler ---
+  // --- Reset Button Handler ---
   const handleReset = () => {
     setFormData(initialFormState);
     setError('');
@@ -120,7 +116,7 @@ function DownloadPage() {
     <div className="page-content">
       <h2>Download Configuration</h2>
       
-      {/* --- Status & Progress Section (No changes) --- */}
+      {/* --- Status & Progress Section --- */}
       <div className="status-container">
         {isLoading && (
           <div className="progress-bar-container">
@@ -133,96 +129,103 @@ function DownloadPage() {
       </div>
       
       <form className="modern-form" onSubmit={handleSubmit}>
-        {/* --- All form-group divs (No changes) --- */}
-        <div className="form-group">
-          <label>Project Name *</label>
-          <input 
-            type="text" 
-            name="projectName"
-            value={formData.projectName}
-            onChange={handleInputChange}
-            placeholder="e.g., MyCPIProject" 
-            required 
-            disabled={isLoading}
-          />
-        </div>
-        <div className="form-group">
-          <label>Environment *</label>
-          <input 
-            type="text" 
-            name="environment"
-            value={formData.environment}
-            onChange={handleInputChange}
-            placeholder="e.g., Development" 
-            required 
-            disabled={isLoading}
-          />
-        </div>
-        <div className="form-group">
-          <label>User Name</label>
-          <input 
-            type="text" 
-            name="userName"
-            value={formData.userName}
-            onChange={handleInputChange}
-            placeholder="Your name or S-User" 
-            disabled={isLoading}
-          />
-        </div>
-        <div className="form-group">
-          <label>CPI Base URL *</label>
-          <input 
-            type="text" 
-            name="cpiBaseUrl"
-            value={formData.cpiBaseUrl}
-            onChange={handleInputChange}
-            placeholder="https://your-tenant.api.sap" 
-            required 
-            disabled={isLoading}
-          />
-        </div>
-        <div className="form-group">
-          <label>Token URL *</label>
-          <input 
-            type="text" 
-            name="tokenUrl"
-            value={formData.tokenUrl}
-            onChange={handleInputChange}
-            placeholder="https://your-tenant.authentication.sap" 
-            required 
-            disabled={isLoading}
-          />
-        </div>
-        <div className="form-group">
-          <label>Client ID *</label>
-          <input 
-            type="text" 
-            name="clientId"
-            value={formData.clientId}
-            onChange={handleInputChange}
-            required 
-            disabled={isLoading}
-          />
-        </div>
-        <div className="form-group">
-          <label>Client Secret *</label>
-          <input 
-            type="password"
-            name="clientSecret"
-            value={formData.clientSecret}
-            onChange={handleInputChange}
-            required 
-            disabled={isLoading}
-          />
-        </div>
+          
+          <div className="form-group">
+            <label>Project Name *</label>
+            <input 
+              type="text" 
+              name="projectName"
+              value={formData.projectName}
+              onChange={handleInputChange}
+              placeholder="e.g., MyCPIProject" 
+              required 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Environment *</label>
+            <input 
+              type="text" 
+              name="environment"
+              value={formData.environment}
+              onChange={handleInputChange}
+              placeholder="e.g., Development" 
+              required 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>User Name</label>
+            <input 
+              type="text" 
+              name="userName"
+              value={formData.userName}
+              onChange={handleInputChange}
+              placeholder="Your name or S-User" 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>CPI Base URL *</label>
+            <input 
+              type="text" 
+              name="cpiBaseUrl"
+              value={formData.cpiBaseUrl}
+              onChange={handleInputChange}
+              placeholder="https://your-tenant.api.sap" 
+              required 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Token URL *</label>
+            <input 
+              type="text" 
+              name="tokenUrl"
+              value={formData.tokenUrl}
+              onChange={handleInputChange}
+              placeholder="https://your-tenant.authentication.sap" 
+              required 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Client ID *</label>
+            <input 
+              type="text" 
+              name="clientId"
+              value={formData.clientId}
+              onChange={handleInputChange}
+              required 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Client Secret *</label>
+            <input 
+              type="password"
+              name="clientSecret"
+              value={formData.clientSecret}
+              onChange={handleInputChange}
+              required 
+              disabled={isLoading}
+            />
+          </div>
         
-        {/* --- 👇 NEW: Button Group --- */}
+        {/* --- Adds space before buttons --- */}
+        <div style={{ marginBottom: '1.5rem' }}></div> 
+
         <div className="button-group">
           <button type="submit" className="btn-primary" disabled={isLoading}>
             {isLoading ? 'Downloading...' : 'Download Config'}
           </button>
           
-          {/* --- 👇 NEW: Reset Button --- */}
           <button 
             type="button" 
             className="btn-secondary" 
@@ -238,50 +241,223 @@ function DownloadPage() {
 }
 // --- End of Download Page ---
 
+// --- 👇 Upload Page (Updated) ---
 function UploadPage() {
-  // ... (UploadPage code remains the same) ...
+  // --- Create initial empty state for reset ---
+  const initialFormState = {
+    projectName: '',
+    environment: '',
+    userName: '',
+    cpiBaseUrl: '',
+    tokenUrl: '',
+    clientId: '',
+    clientSecret: ''
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
+  const [file, setFile] = useState(null); // State for the file
+  
+  // State for loading, error, and success messages (for future use)
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Generic handler to update state from any input
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+  };
+
+  // Handler for file input
+  const handleFileChange = (e) => {
+    if (e.target.files) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  // --- Form submission handler (placeholder for now) ---
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    setSuccessMessage('');
+    
+    console.log("Form Data:", formData);
+    console.log("File:", file);
+    
+    // We will build the job logic here later
+    // For now, just simulate work
+    setTimeout(() => {
+      setIsLoading(false);
+      // setSuccessMessage("Upload complete!"); 
+      // setError("This is a test error.");
+    }, 2000);
+  };
+
+  // --- Reset Button Handler ---
+  const handleReset = () => {
+    setFormData(initialFormState);
+    setFile(null);
+    setError('');
+    setSuccessMessage('');
+    
+    // This is needed to clear the <input type="file"> field
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
   return (
     <div className="page-content">
       <h2>Upload Configuration</h2>
-      <form className="modern-form">
-        {/* ... (all form-group divs) ... */}
-        <div className="form-group">
-          <label>Project Name</label>
-          <input type="text" placeholder="e.g., MyCPIProject" />
+      
+      {/* --- Status & Progress Section --- */}
+      <div className="status-container">
+        {isLoading && (
+          <div className="progress-bar-container">
+            <span>Uploading... this may take a moment.</span>
+            <progress className="progress-bar"></progress>
+          </div>
+        )}
+        {successMessage && <div className="form-success">{successMessage}</div>}
+        {error && <div className="form-error">{error}</div>}
+      </div>
+      
+      <form className="modern-form" onSubmit={handleSubmit}>
+          
+          <div className="form-group">
+            <label>Project Name *</label>
+            <input 
+              type="text" 
+              name="projectName"
+              value={formData.projectName}
+              onChange={handleInputChange}
+              placeholder="e.g., MyCPIProject" 
+              required 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Environment *</label>
+            <input 
+              type="text" 
+              name="environment"
+              value={formData.environment}
+              onChange={handleInputChange}
+              placeholder="e.g., Development" 
+              required 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>User Name</label>
+            <input 
+              type="text" 
+              name="userName"
+              value={formData.userName}
+              onChange={handleInputChange}
+              placeholder="Your name or S-User" 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>CPI Base URL *</label>
+            <input 
+              type="text" 
+              name="cpiBaseUrl"
+              value={formData.cpiBaseUrl}
+              onChange={handleInputChange}
+              placeholder="https://your-tenant.api.sap" 
+              required /*
+ * Fix for 3095213 (PARTNER)
+ * Original code:
+ *
+ * return "" + year + "/" + month + "/" + day;
+ *
+ */
+// return "" + year + "/" + month + "/" + day + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Token URL *</label>
+            <input 
+              type="text" 
+              name="tokenUrl"
+              value={formData.tokenUrl}
+              onChange={handleInputChange}
+              placeholder="https://your-tenant.authentication.sap" 
+              required 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Client ID *</label>
+            <input 
+              type="text" 
+              name="clientId"
+              value={formData.clientId}
+              onChange={handleInputChange}
+              required 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Client Secret *</label>
+            <input 
+              type="password"
+              name="clientSecret"
+              value={formData.clientSecret}
+              onChange={handleInputChange}
+              required 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Upload CSV File *</label>
+            <input 
+              type="file" 
+              id="file-input" // Added ID for reset
+              accept=".csv"
+              onChange={handleFileChange}
+              required
+              disabled={isLoading}
+            />
+          </div>
+        
+        {/* --- Adds space before buttons --- */}
+        <div style={{ marginBottom: '1.5rem' }}></div> 
+
+        <div className="button-group">
+          <button type="submit" className="btn-primary" disabled={isLoading || !file}>
+            {isLoading ? 'Uploading...' : 'Upload Config'}
+          </button>
+          
+          <button 
+            type="button" 
+            className="btn-secondary" 
+            onClick={handleReset} 
+            disabled={isLoading}
+          >
+            Reset
+          </button>
         </div>
-        <div className="form-group">
-          <label>Environment</label>
-          <input type="text" placeholder="e.g., Development" />
-        </div>
-        <div className="form-group">
-          <label>User Name</label>
-          <input type="text" placeholder="Your name or S-User" />
-        </div>
-        <div className="form-group">
-          <label>CPI Base URL</label>
-          <input type="text" placeholder="https://your-tenant.api.sap" />
-        </div>
-        <div className="form-group">
-          <label>Token URL</label>
-          <input type="text" placeholder="https://your-tenant.authentication.sap" />
-        </div>
-        <div className="form-group">
-          <label>Client ID</label>
-          <input type="text" />
-        </div>
-        <div className="form-group">
-          <label>Client Secret</label>
-          <input type="password" />
-        </div>
-        <div className="form-group">
-          <label>Upload CSV File</label>
-          <input type="file" accept=".csv" />
-        </div>
-        <button type="submit" className="btn-primary">Upload Config</button>
       </form>
     </div>
   );
 }
+// --- End of Upload Page ---
 
 // --- Main App Layout (No changes) ---
 function App() {

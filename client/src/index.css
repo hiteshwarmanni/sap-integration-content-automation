@@ -104,17 +104,21 @@ h1, h2, h3 {
   overflow-y: auto;
 }
 
-/* --- 3. Modern Form Styling --- */
+
+/* --- 3. Modern Form Styling (UPDATED) --- */
 .modern-form {
-  max-width: 500px;
+  max-width: 950px; /* <-- Change from 500px to 650px */
+  margin: 0 auto;
   background: #ffffff;
   padding: 2rem;
   border-radius: 8px;
   box-shadow: var(--shadow);
 }
 
+
+
 .form-group {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.25rem; /* <-- ADD THIS BACK to create space between fields */
 }
 
 .form-group label {
@@ -128,10 +132,10 @@ h1, h2, h3 {
 .form-group input[type="password"],
 .form-group input[type="file"] {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem; /* <-- Reduced from 0.75rem */
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  font-size: 1rem;
+  font-size: 0.9rem; /* <-- Reduced from 1rem */
 }
 
 .form-group input[type="file"] {
@@ -174,10 +178,12 @@ h1, h2, h3 {
 
 /* client/src/index.css (add to end) */
 
-/* --- 4. Form States (Updated) --- */
+
+
+/* --- 4. Form States (UPDATED) --- */
 .status-container {
-  max-width: 500px;
-  margin: 0 auto 1.5rem auto; /* Center it above the form */
+  max-width: 950px; /* <-- Change from 500px to 650px */
+  margin: 0 auto 1.5rem auto; 
 }
 
 .form-error,
@@ -251,6 +257,8 @@ h1, h2, h3 {
   align-items: center;
 }
 
+
+
 .btn-secondary {
   background-color: #ffffff;
   color: #555;
@@ -273,4 +281,11 @@ h1, h2, h3 {
   color: #a0a0a0;
   border-color: #e0e0e0;
   cursor: not-allowed;
+}
+
+.page-content h2 {
+  text-align: center;
+  color: var(--sap-blue);
+  font-size: 1.75rem; /* Make the title a bit bigger */
+  margin-bottom: 2rem; /* Add more space below the title */
 }
