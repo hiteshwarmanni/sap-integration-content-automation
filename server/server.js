@@ -1,32 +1,58 @@
 // server/server.js
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios'); // We need axios
+const axios = require('axios');
 const { knex, setupDatabase } = require('./db.js');
+const path = require('path');
+const fs = require('fs');
+const winston = require('winston');
+
+// --- Winston Logger Setup ---
+const logsDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir);
+}
+
+// Logger format
+const loggerFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.printf(({ timestamp, level, message }) => `${timestamp} [${level.toUpperCase()}]: ${message}`)
+);
+
+// Timestamp Helper Function
+function getFormattedTimestamp(date) {
+  const pad = (num) => (num < 10 ? '0' : '') + num;
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+}
+
 
 const app = express();
 const PORT = 3001;
-
 app.use(cors());
 app.use(express.json());
 
-// --- Helper function to escape CSV cells ---
+// CSV Helper
 function escapeCSV(cell) {
   if (cell === null || typeof cell === 'undefined') return "";
   let str = String(cell);
   if (str.includes(',') || str.includes('\"') || str.includes('\n')) {
-    str = str.replace(/\"/g, '\"\"'); // Escape double quotes
+    str = str.replace(/\"/g, '\"\"');
     return `"${str}"`;
   }
   return str;
 }
 
-// --- Database Logging Endpoint ---
+// --- Database Logging Endpoint (Updated) ---
 app.post('/api/log', async (req, res) => {
   try {
-    const { projectName, environment, userName, activityType } = req.body;
+    const { projectName, environment, userName, activityType, logFile, executionTimestamp } = req.body;
     
-    // Validate required fields
     if (!projectName || !environment || !activityType) {
       return res.status(400).json({ error: 'Missing required log fields' });
     }
@@ -34,31 +60,73 @@ app.post('/api/log', async (req, res) => {
     await knex('logs').insert({
       projectName,
       environment,
-      userName: userName || 'N/A', // Handle optional userName
-      activityType
+      userName: userName || 'N/A',
+      activityType,
+      logFile: logFile || null,
+      
+      // --- THIS IS THE FIX ---
+      // Use the provided string timestamp, or generate a new one
+      timestamp: executionTimestamp ? executionTimestamp : getFormattedTimestamp(new Date()).replace('_', ' ')
     });
     
+    console.log('✅ DB log created:', { projectName, activityType, logFile });
     res.status(201).json({ message: 'Log created' });
-  } catch (error) {
-    console.error('Log Error:', error);
+
+  } catch (error)
+ {
+    console.error('DB Log Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// --- 👇 NEW: Main Download Logic Endpoint ---
+// --- Main Download Logic Endpoint (Updated) ---
 app.post('/api/v1/run-download', async (req, res) => {
-  console.log('Download request received...');
+
+  // 1. Generate ONE timestamp
+  const executionTimestamp = new Date();
   
-  // 1. Get all credentials from the form
+  // --- 👇 Use it to create the formatted string ---
+  const formattedTimestamp = getFormattedTimestamp(executionTimestamp);
+  const logFileName = `run_${formattedTimestamp}.log`;
+  const logFilePath = path.join(logsDir, logFileName);
+  
+  // Create a new logger instance
+  const logger = winston.createLogger({
+    level: 'info',
+    format: loggerFormat,
+    transports: [
+      new winston.transports.Console({ format: winston.format.simple() }),
+      new winston.transports.File({ filename: logFilePath })
+    ]
+  });
+
+  logger.info('Download request received...');
+  
   const {
-    cpiBaseUrl,
-    tokenUrl,
-    clientId,
-    clientSecret
+    projectName, environment, userName,
+    cpiBaseUrl, tokenUrl, clientId, clientSecret
   } = req.body;
+
+  // 3. Use it in the DB log call
+  try {
+    axios.post(`http://localhost:${PORT}/api/log`, {
+      projectName,
+      environment,
+      userName,
+      activityType: 'Download',
+      logFile: `logs/${logFileName}`,
+      // --- THIS IS THE FIX ---
+      // Pass the formatted string (with a space) to the DB
+      executionTimestamp: formattedTimestamp.replace('_', ' ') 
+    });
+  } catch (logError) {
+    logger.error('Failed to create initial DB log:', logError.message);
+  }
 
   // Simple validation
   if (!cpiBaseUrl || !tokenUrl || !clientId || !clientSecret) {
+    logger.error('Validation failed: Missing required API credentials');
+    logger.end();
     return res.status(400).json({ error: 'Missing required API credentials' });
   }
 
@@ -66,7 +134,7 @@ app.post('/api/v1/run-download', async (req, res) => {
 
   try {
     // --- Step 1: Get Auth Token ---
-    console.log('Step 1: Getting Auth Token...');
+    logger.info('Step 1: Getting Auth Token...');
     const tokenAuth = { username: clientId, password: clientSecret };
     const tokenBody = new URLSearchParams();
     tokenBody.append('grant_type', 'client_credentials');
@@ -76,23 +144,24 @@ app.post('/api/v1/run-download', async (req, res) => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
     accessToken = tokenResponse.data.access_token;
-    console.log('Token acquired.');
+    logger.info('Token acquired.');
 
     // --- Step 2: Get All Integration Packages ---
-    console.log('Step 2: Getting Integration Packages...');
+    logger.info('Step 2: Getting Integration Packages...');
     const authHeader = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' };
     const packagesUrl = `${cpiBaseUrl}/IntegrationPackages`;
     
     const packagesResponse = await axios.get(packagesUrl, { headers: authHeader });
     const packages = packagesResponse.data.d.results;
-    console.log(`Found ${packages.length} packages.`);
+    logger.info(`Found ${packages.length} packages.`);
 
     // --- Step 3 & 4: Loop Packages and iFlows ---
-    console.log('Step 3 & 4: Looping packages and iFlows...');
+    logger.info('Step 3 & 4: Looping packages and iFlows...');
     const allConfigData = [];
-    const version = 'active'; // Using 'active' version as from Postman
+    const version = 'active';
 
-    for (const pkg of packages) {
+    for (const [index, pkg] of packages.entries()) {
+      logger.info(`--- Processing Package ${index + 1}/${packages.length}: ${pkg.Name} ---`);
       const iFlowsUrl = `${cpiBaseUrl}/IntegrationPackages('${pkg.Id}')/IntegrationDesigntimeArtifacts`;
       let iFlows = [];
       
@@ -100,23 +169,20 @@ app.post('/api/v1/run-download', async (req, res) => {
         const iFlowsResponse = await axios.get(iFlowsUrl, { headers: authHeader });
         iFlows = iFlowsResponse.data.d.results;
       } catch (pkgError) {
-        console.error(`Error getting iFlows for package ${pkg.Name}: ${pkgError.message}`);
-        continue; // Skip this package
+        logger.error(`Error getting iFlows for package ${pkg.Name}: ${pkgError.message}`);
+        continue;
       }
 
       if (iFlows.length === 0) {
-        // Add a blank entry for the package if it has no iFlows
+        logger.warn(`No iFlows found for package: ${pkg.Name}`);
         allConfigData.push({
-          PackageName: pkg.Name,
-          PackageID: pkg.Id,
-          IflowName: '',
-          IflowID: '',
-          ParameterKey: '',
-          ParameterValue: '',
-          DataType: ''
+          PackageName: pkg.Name, PackageID: pkg.Id, IflowName: '', IflowID: '',
+          ParameterKey: '', ParameterValue: '', DataType: ''
         });
         continue;
       }
+      
+      logger.info(`Found ${iFlows.length} iFlows for package: ${pkg.Name}`);
 
       for (const iflow of iFlows) {
         const configsUrl = `${cpiBaseUrl}/IntegrationDesigntimeArtifacts(Id='${iflow.Id}',Version='${version}')/Configurations`;
@@ -126,32 +192,21 @@ app.post('/api/v1/run-download', async (req, res) => {
           const configResponse = await axios.get(configsUrl, { headers: authHeader });
           configurations = configResponse.data.d.results;
         } catch (iflowError) {
-          console.error(`Error getting configs for iFlow ${iflow.Name}: ${iflowError.message}`);
-          // Add a row showing the iFlow but with an error
-           allConfigData.push({
-            PackageName: pkg.Name,
-            PackageID: pkg.Id,
-            IflowName: iflow.Name,
-            IflowID: iflow.Id,
-            ParameterKey: 'ERROR',
-            ParameterValue: iflowError.message,
-            DataType: ''
+          logger.error(`Error getting configs for iFlow ${iflow.Name}: ${iflowError.message}`);
+          allConfigData.push({
+            PackageName: pkg.Name, PackageID: pkg.Id, IflowName: iflow.Name, IflowID: iflow.Id,
+            ParameterKey: 'ERROR', ParameterValue: iflowError.message, DataType: ''
           });
-          continue; // Skip this iFlow
+          continue;
         }
-
+        
         const baseRow = {
-          PackageName: pkg.Name,
-          PackageID: pkg.Id,
-          IflowName: iflow.Name,
-          IflowID: iflow.Id
+          PackageName: pkg.Name, PackageID: pkg.Id, IflowName: iflow.Name, IflowID: iflow.Id
         };
 
         if (configurations.length === 0) {
-          // If no configs, add one blank row for the iFlow
           allConfigData.push({ ...baseRow, ParameterKey: '', ParameterValue: '', DataType: '' });
         } else {
-          // Add one row for each config parameter
           configurations.forEach(config => {
             allConfigData.push({
               ...baseRow,
@@ -163,7 +218,7 @@ app.post('/api/v1/run-download', async (req, res) => {
         }
       }
     }
-    console.log('All data fetched. Generating CSV.');
+    logger.info('All data fetched. Generating CSV.');
 
     // --- Step 5: Convert to CSV ---
     const headers = ["PackageName", "PackageID", "IflowName", "IflowID", "ParameterKey", "ParameterValue", "DataType"];
@@ -175,30 +230,25 @@ app.post('/api/v1/run-download', async (req, res) => {
     const csvContent = csvHeader + csvRows;
 
     // --- Step 6: Send File as Response ---
-    console.log('Sending CSV file to client.');
+    logger.info('Sending CSV file to client.');
+    logger.end();
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="configurations.csv"');
     res.status(200).send(csvContent);
 
   } catch (error) {
-    console.error('Full Download Error:', error);
-    // Handle different error types
+    const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
+    logger.error(`FATAL DOWNLOAD ERROR: ${errorMsg}`, error);
+
+    logger.end();
     if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error('Error Data:', error.response.data);
-      console.error('Error Status:', error.response.status);
       res.status(500).json({
         error: `API Error: ${error.response.data.error?.message || 'Failed to call SAP API'}`,
         status: error.response.status
       });
     } else if (error.request) {
-      // The request was made but no response was received
-      console.error('Error Request:', error.request);
       res.status(500).json({ error: 'No response from SAP API. Check URL and connectivity.' });
     } else {
-      // Something happened in setting up the request that triggered an Error
-      console.error('Error Message:', error.message);
       res.status(500).json({ error: error.message });
     }
   }

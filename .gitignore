@@ -4,6 +4,9 @@
 # Server database file
 /server/logs.db
 
+#Execution Logs
+/server/logs
+
 # Server environment secrets
 # 💥 VERY IMPORTANT: Never commit this file!
 /server/.env

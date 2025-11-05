@@ -69,16 +69,18 @@ h1, h2, h3 {
 
 .app-nav {
   background-color: var(--nav-bg);
-  width: 240px; /* Default width */
+  /* width is now set by inline style */
   padding-top: 1rem;
   border-right: 1px solid var(--border-color);
   transition: width 0.2s ease-in-out;
   overflow: hidden;
-  flex-shrink: 0; /* Don't shrink */
+  flex-shrink: 0;
 }
 
 .app-nav a {
-  display: block;
+  display: flex; /* Use flexbox for alignment */
+  align-items: center; /* Vertically center icon and text */
+  gap: 1rem; /* Space between icon and text */
   padding: 0.75rem 1.5rem;
   text-decoration: none;
   color: var(--text-color);
@@ -86,11 +88,23 @@ h1, h2, h3 {
   white-space: nowrap;
 }
 
+.app-nav .nav-icon {
+  font-size: 1.25rem; /* Make icons a bit bigger */
+  display: inline-block;
+  width: 24px; /* Give icon a fixed width for alignment */
+  text-align: center;
+  flex-shrink: 0; /* Stop icon from shrinking */
+  
+}
+
+.app-nav .nav-text {
+  display: inline-block;
+}
+
 .app-nav a:hover {
   background-color: var(--nav-hover);
 }
 
-/* This is the magic for the active page link */
 .app-nav a.active {
   color: var(--sap-blue);
   font-weight: 700;
@@ -98,10 +112,41 @@ h1, h2, h3 {
   padding-left: calc(1.5rem - 3px);
 }
 
+/* --- 👇 ADD THESE NEW STYLES for Collapsed Nav --- */
+
+.app-nav.collapsed a {
+  padding: 0.75rem 0; /* Adjust padding for collapsed state */
+  justify-content: center; /* Center the icon */
+  gap: 0;
+}
+
+.app-nav.collapsed .nav-text {
+  display: none; /* Hide the text when collapsed */
+}
+
+.app-nav.collapsed .nav-icon {
+  width: 100%; /* Allow icon to be centered */
+  margin: 0;
+}
+
+.app-nav.collapsed a.active {
+  /* Keep border, but adjust padding */
+  border-left: 3px solid var(--sap-blue);
+  padding-left: 0; 
+  padding-right: 3px;
+}
+
 .app-main {
   flex: 1; /* Take up remaining space */
   padding: 2rem;
   overflow-y: auto;
+}
+
+.icon-svg {
+  width: 20px;   /* Size of the SVG icon */
+  height: 20px;  /* Size of the SVG icon */
+  color: #000;   /* Sets the SVG's stroke color (via currentColor) */
+  vertical-align: middle; /* Helps with alignment */
 }
 
 
