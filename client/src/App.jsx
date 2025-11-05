@@ -241,60 +241,97 @@ function DownloadPage() {
 }
 // --- End of Download Page ---
 
-// --- 👇 Upload Page (Updated) ---
+// --- 👇 Upload Page (Updated with jobStatus fix) ---
 function UploadPage() {
-  // --- Create initial empty state for reset ---
   const initialFormState = {
-    projectName: '',
-    environment: '',
-    userName: '',
-    cpiBaseUrl: '',
-    tokenUrl: '',
-    clientId: '',
-    clientSecret: ''
+    projectName: '', environment: '', userName: '',
+    cpiBaseUrl: '', tokenUrl: '', clientId: '', clientSecret: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
-  const [file, setFile] = useState(null); // State for the file
+  const [file, setFile] = useState(null);
   
-  // State for loading, error, and success messages (for future use)
+  // We no longer need a separate jobId state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [jobStatus, setJobStatus] = useState(null); // Will hold { jobId, status, progress, total, resultFile }
+  const [pollInterval, setPollInterval] = useState(null);
 
-  // Generic handler to update state from any input
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prevState => ({
-      ...prevState,
-      [name]: value
-    }));
+    setFormData(prevState => ({ ...prevState, [name]: value }));
   };
 
-  // Handler for file input
   const handleFileChange = (e) => {
-    if (e.target.files) {
-      setFile(e.target.files[0]);
-    }
+    if (e.target.files) setFile(e.target.files[0]);
   };
 
-  // --- Form submission handler (placeholder for now) ---
+  // --- Polling Function (Updated) ---
+  const pollJobStatus = (id) => { // 'id' is the jobId
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/api/v1/job-status/${id}`);
+        
+        // --- THIS IS THE FIX ---
+        // We add the jobId to the status object we save
+        setJobStatus({ ...data, jobId: id }); 
+        // --- END OF FIX ---
+
+        if (data.status === 'Complete' || data.status === 'Failed') {
+          clearInterval(interval);
+          setPollInterval(null);
+          setIsLoading(false);
+          if(data.status === 'Failed') {
+            setError('Job failed. Check logs for details.');
+          }
+        }
+      } catch (pollError) {
+        setError('Error checking job status.');
+        clearInterval(interval);
+        setPollInterval(null);
+        setIsLoading(false);
+      }
+    }, 2000);
+    setPollInterval(interval);
+  };
+
+  // --- Form submission handler ---
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!file) {
+      setError('Please select a CSV file to upload.');
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
-    setSuccessMessage('');
-    
-    console.log("Form Data:", formData);
-    console.log("File:", file);
-    
-    // We will build the job logic here later
-    // For now, just simulate work
-    setTimeout(() => {
+    setJobStatus(null);
+    if(pollInterval) clearInterval(pollInterval);
+
+    const uploadData = new FormData();
+    Object.entries(formData).forEach(([key, value]) => {
+      uploadData.append(key, value);
+    });
+    uploadData.append('file', file);
+
+    try {
+      // 1. Start the job
+      const { data } = await axios.post(`${API_URL}/api/v1/run-upload`, uploadData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      // 2. Start polling
+      pollJobStatus(data.jobId);
+      
+    } catch (apiError) {
+      console.error('Upload Error:', apiError);
+      if (apiError.response && apiError.response.data) {
+        setError(`Error: ${apiError.response.data.error}`);
+      } else {
+        setError('An unknown error occurred. Check the server console.');
+      }
       setIsLoading(false);
-      // setSuccessMessage("Upload complete!"); 
-      // setError("This is a test error.");
-    }, 2000);
+    }
   };
 
   // --- Reset Button Handler ---
@@ -302,141 +339,58 @@ function UploadPage() {
     setFormData(initialFormState);
     setFile(null);
     setError('');
-    setSuccessMessage('');
+    setJobStatus(null);
+    setIsLoading(false);
+    if(pollInterval) clearInterval(pollInterval);
     
-    // This is needed to clear the <input type="file"> field
     const fileInput = document.getElementById('file-input');
-    if (fileInput) {
-      fileInput.value = '';
-    }
+    if (fileInput) fileInput.value = '';
   };
-
+  
   return (
     <div className="page-content">
       <h2>Upload Configuration</h2>
       
       {/* --- Status & Progress Section --- */}
       <div className="status-container">
-        {isLoading && (
+        {/* Progress Bar (no change) */}
+        {isLoading && jobStatus && jobStatus.status === 'Running' && (
           <div className="progress-bar-container">
-            <span>Uploading... this may take a moment.</span>
+            <span>{`Processing: ${jobStatus.progress} / ${jobStatus.total} rows...`}</span>
+            <progress className="progress-bar" value={jobStatus.progress} max={jobStatus.total}></progress>
+          </div>
+        )}
+        {isLoading && !jobStatus && (
+          <div className="progress-bar-container">
+            <span>Starting job...</span>
             <progress className="progress-bar"></progress>
           </div>
         )}
-        {successMessage && <div className="form-success">{successMessage}</div>}
+        
+        {/* --- Download Link (Updated) --- */}
+        {jobStatus && jobStatus.status === 'Complete' && (
+          <div className="form-success">
+            Job complete! 
+            {/* --- THIS IS THE FIX --- */}
+            {/* We now read the jobId from the jobStatus object */}
+            <a href={`${API_URL}/api/v1/get-result/${jobStatus.jobId}`} className="download-link">Download Results CSV</a>
+          </div>
+        )}
         {error && <div className="form-error">{error}</div>}
       </div>
       
+      {/* Form (no change) */}
       <form className="modern-form" onSubmit={handleSubmit}>
-          
-          <div className="form-group">
-            <label>Project Name *</label>
-            <input 
-              type="text" 
-              name="projectName"
-              value={formData.projectName}
-              onChange={handleInputChange}
-              placeholder="e.g., MyCPIProject" 
-              required 
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Environment *</label>
-            <input 
-              type="text" 
-              name="environment"
-              value={formData.environment}
-              onChange={handleInputChange}
-              placeholder="e.g., Development" 
-              required 
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>User Name</label>
-            <input 
-              type="text" 
-              name="userName"
-              value={formData.userName}
-              onChange={handleInputChange}
-              placeholder="Your name or S-User" 
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>CPI Base URL *</label>
-            <input 
-              type="text" 
-              name="cpiBaseUrl"
-              value={formData.cpiBaseUrl}
-              onChange={handleInputChange}
-              placeholder="https://your-tenant.api.sap" 
-              required /*
- * Fix for 3095213 (PARTNER)
- * Original code:
- *
- * return "" + year + "/" + month + "/" + day;
- *
- */
-// return "" + year + "/" + month + "/" + day + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Token URL *</label>
-            <input 
-              type="text" 
-              name="tokenUrl"
-              value={formData.tokenUrl}
-              onChange={handleInputChange}
-              placeholder="https://your-tenant.authentication.sap" 
-              required 
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Client ID *</label>
-            <input 
-              type="text" 
-              name="clientId"
-              value={formData.clientId}
-              onChange={handleInputChange}
-              required 
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Client Secret *</label>
-            <input 
-              type="password"
-              name="clientSecret"
-              value={formData.clientSecret}
-              onChange={handleInputChange}
-              required 
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Upload CSV File *</label>
-            <input 
-              type="file" 
-              id="file-input" // Added ID for reset
-              accept=".csv"
-              onChange={handleFileChange}
-              required
-              disabled={isLoading}
-            />
-          </div>
+          {/* ... (all form-group divs) ... */}
+          <div className="form-group"><label>Project Name *</label><input type="text" name="projectName" value={formData.projectName} onChange={handleInputChange} required disabled={isLoading} /></div>
+          <div className="form-group"><label>Environment *</label><input type="text" name="environment" value={formData.environment} onChange={handleInputChange} required disabled={isLoading} /></div>
+          <div className="form-group"><label>User Name</label><input type="text" name="userName" value={formData.userName} onChange={handleInputChange} disabled={isLoading} /></div>
+          <div className="form-group"><label>CPI Base URL *</label><input type="text" name="cpiBaseUrl" value={formData.cpiBaseUrl} onChange={handleInputChange} required disabled={isLoading} /></div>
+          <div className="form-group"><label>Token URL *</label><input type="text" name="tokenUrl" value={formData.tokenUrl} onChange={handleInputChange} required disabled={isLoading} /></div>
+          <div className="form-group"><label>Client ID *</label><input type="text" name="clientId" value={formData.clientId} onChange={handleInputChange} required disabled={isLoading} /></div>
+          <div className="form-group"><label>Client Secret *</label><input type="password" name="clientSecret" value={formData.clientSecret} onChange={handleInputChange} required disabled={isLoading} /></div>
+          <div className="form-group"><label>Upload CSV File *</label><input type="file" id="file-input" accept=".csv" onChange={handleFileChange} required disabled={isLoading} /></div>
         
-        {/* --- Adds space before buttons --- */}
         <div style={{ marginBottom: '1.5rem' }}></div> 
 
         <div className="button-group">
@@ -444,12 +398,7 @@ function UploadPage() {
             {isLoading ? 'Uploading...' : 'Upload Config'}
           </button>
           
-          <button 
-            type="button" 
-            className="btn-secondary" 
-            onClick={handleReset} 
-            disabled={isLoading}
-          >
+          <button type="button" className="btn-secondary" onClick={handleReset} disabled={isLoading}>
             Reset
           </button>
         </div>
@@ -458,6 +407,8 @@ function UploadPage() {
   );
 }
 // --- End of Upload Page ---
+
+
 
 // --- 2. Build the Main App Layout (Updated) ---
 function App() {

@@ -334,3 +334,37 @@ h1, h2, h3 {
   font-size: 1.75rem; /* Make the title a bit bigger */
   margin-bottom: 2rem; /* Add more space below the title */
 }
+/* client/src/index.css (add to end) */
+
+/* --- Style for determinate progress bar --- */
+.progress-bar[value] {
+  /* This removes the indeterminate animation */
+  -webkit-appearance: none;
+  appearance: none;
+}
+.progress-bar[value]::-webkit-progress-bar {
+  background-color: #eef5ff;
+}
+.progress-bar[value]::-webkit-progress-value {
+  background-color: var(--sap-blue);
+  transition: width 0.3s ease; /* Animate progress changes */
+}
+.progress-bar[value]::-moz-progress-bar {
+  background-color: var(--sap-blue);
+  transition: width 0.3s ease;
+}
+
+/* --- Style for the results download link --- */
+.download-link {
+  display: inline-block;
+  margin-left: 1rem;
+  padding: 0.25rem 0.5rem;
+  background-color: #004a99;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.download-link:hover {
+  background-color: #003b7a;
+}

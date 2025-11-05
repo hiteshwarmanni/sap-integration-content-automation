@@ -7,6 +7,9 @@
 #Execution Logs
 /server/logs
 
+#Results
+/server/results
+
 # Server environment secrets
 # 💥 VERY IMPORTANT: Never commit this file!
 /server/.env
