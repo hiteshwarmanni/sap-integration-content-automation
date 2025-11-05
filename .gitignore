@@ -1,0 +1,13 @@
+# Server dependencies
+/server/node_modules
+
+# Server database file
+/server/logs.db
+
+# Server environment secrets
+# 💥 VERY IMPORTANT: Never commit this file!
+/server/.env
+
+# General OS files
+.DS_Store
+Thumbs.db
