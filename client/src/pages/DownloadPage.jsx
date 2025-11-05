@@ -9,7 +9,8 @@ const API_URL = 'http://localhost:3001';
 function DownloadPage() {
   const initialFormState = {
     projectName: '', environment: '', userName: '',
-    cpiBaseUrl: '', tokenUrl: '', clientId: '', clientSecret: ''
+    cpiBaseUrl: '', tokenUrl: '', clientId: '', clientSecret: '',
+    packageId: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -153,6 +154,18 @@ function DownloadPage() {
               disabled={isLoading}
             />
           </div>
+
+          {/* --- 👇 NEW INPUT FIELD ADDED HERE --- */}
+          <div className="form-group">
+            <label>Package ID (Optional)</label>
+            <input 
+              type="text" name="packageId"
+              value={formData.packageId} onChange={handleInputChange}
+              placeholder="Leave blank for all, or: id1,id2,id3" 
+              disabled={isLoading}
+            />
+          </div>
+          {/* --- END OF NEW FIELD --- */}
 
           <div className="form-group">
             <label>CPI Base URL *</label>

@@ -2,24 +2,20 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
 
-// API URL for our server
-const API_URL = 'http://localhost:3001';
-
-// --- Import our new pages ---
+// --- Import our new page ---
 import HomePage from './pages/HomePage';
 import DownloadPage from './pages/DownloadPage';
 import UploadPage from './pages/UploadPage';
+import LogsPage from './pages/LogsPage'; // <-- NEW
 
-// --- Build the Main App Layout (Updated) ---
+// --- Main App Layout (Cleaned Up) ---
 function App() {
   const [sideNavOpen, setSideNavOpen] = useState(true);
 
-  // --- NEW: Function to expand nav on icon click ---
   const handleNavClick = () => {
     if (!sideNavOpen) {
       setSideNavOpen(true);
     }
-    // The NavLink will handle the page change automatically
   };
 
   return (
@@ -33,12 +29,10 @@ function App() {
         </header>
         
         <div className="app-body">
-          
           <nav 
             className={`app-nav ${sideNavOpen ? '' : 'collapsed'}`} 
             style={{ width: sideNavOpen ? '240px' : '60px' }}
           >
-            {/* --- SVG HOME ICON (No Change) --- */}
             <NavLink to="/" onClick={handleNavClick}>
               <span className="nav-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
@@ -48,8 +42,6 @@ function App() {
               </span>
               <span className="nav-text">Home</span>
             </NavLink>
-
-            {/* --- 👇 NEW SVG DOWNLOAD ICON --- */}
             <NavLink to="/download" onClick={handleNavClick}>
               <span className="nav-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
@@ -60,8 +52,6 @@ function App() {
               </span>
               <span className="nav-text">Download Config</span>
             </NavLink>
-
-            {/* --- 👇 NEW SVG UPLOAD ICON --- */}
             <NavLink to="/upload" onClick={handleNavClick}>
               <span className="nav-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
@@ -72,13 +62,30 @@ function App() {
               </span>
               <span className="nav-text">Upload Config</span>
             </NavLink>
+            
+            {/* --- 👇 NEW LOGS LINK --- */}
+            <NavLink to="/logs" onClick={handleNavClick}>
+              <span className="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+              </span>
+              <span className="nav-text">Logs</span>
+            </NavLink>
+            
           </nav>
           
           <main className="app-main">
+            {/* The routes now point to the imported components */}
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/download" element={<DownloadPage />} />
               <Route path="/upload" element={<UploadPage />} />
+              <Route path="/logs" element={<LogsPage />} /> {/* <-- NEW */}
             </Routes>
           </main>
         </div>

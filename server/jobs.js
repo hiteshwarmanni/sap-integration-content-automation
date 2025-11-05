@@ -13,33 +13,25 @@ const {
   winston,
   axios,
   csv,
+  API_URL, // <-- Import the API_URL
 } = require('./utils.js');
 
-// This is needed for the final log write
-const API_PORT = 3001;
-const API_URL = `http://localhost:${API_PORT}`;
 
 // --- 2. runDownloadJob ---
-
 async function runDownloadJob(jobId) {
   // 1. Get job data
   const job = await knex('download_jobs').where({ id: jobId }).first();
   const { formData } = JSON.parse(job.form_data_json);
-  
-  // --- 👇 Get project and environment from formData ---
-  const { projectName, environment, userName, cpiBaseUrl, tokenUrl, clientId, clientSecret } = formData;
+  const { projectName, environment, userName, cpiBaseUrl, tokenUrl, clientId, clientSecret, packageId } = formData;
 
   // 2. Create logger and result file
   const executionTimestamp = new Date(job.created_at);
   const formattedTimestamp = getFormattedTimestamp(executionTimestamp);
   const logFileName = `run_download_${formattedTimestamp}.log`;
   const logFilePath = path.join(logsDir, logFileName);
-  
-  // --- 👇 THIS IS THE FILENAME CHANGE ---
   const resultsFileName = `${projectName}_${environment}_configurations_${formattedTimestamp}.csv`;
   const resultsFilePath = path.join(resultsDir, resultsFileName);
-  // --- END OF FILENAME CHANGE ---
-
+  
   const logger = winston.createLogger({
     level: 'info', format: loggerFormat,
     transports: [
@@ -51,7 +43,6 @@ async function runDownloadJob(jobId) {
   const resultsStream = fs.createWriteStream(resultsFilePath);
   const headers = ["PackageName", "PackageID", "IflowName", "IflowID", "ParameterKey", "ParameterValue", "DataType"];
   resultsStream.write(headers.join(',') + '\n');
-  
   let finalStatus = 'Failed';
 
   try {
@@ -59,7 +50,7 @@ async function runDownloadJob(jobId) {
     await knex('download_jobs').where({ id: jobId }).update({
       status: 'Running',
       log_file_path: `logs/${logFileName}`,
-      result_file_path: `results/${resultsFileName}` // Save the new dynamic path
+      result_file_path: `results/${resultsFileName}`
     });
 
     // 4. Get Auth Token
@@ -72,26 +63,50 @@ async function runDownloadJob(jobId) {
     });
     const accessToken = tokenResponse.data.access_token;
     logger.info('Token acquired.');
-
-    // 5. Get All Packages
-    logger.info('Step 2: Getting Integration Packages...');
+    
+    // --- THIS WAS THE BUG FIX: Define authHeader *after* token is acquired ---
     const authHeader = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' };
+
+    // --- STEP 5: Get ALL Packages, THEN Filter ---
+    logger.info('Step 2: Getting ALL Integration Packages...');
     const packagesUrl = `${cpiBaseUrl}/IntegrationPackages`;
     const packagesResponse = await axios.get(packagesUrl, { headers: authHeader });
-    const packages = packagesResponse.data.d.results;
-    logger.info(`Found ${packages.length} packages.`);
+    let allPackages = packagesResponse.data.d.results;
+    logger.info(`Fetched ${allPackages.length} total packages.`);
+
+    let packagesToProcess = [];
+    
+    // Now, we filter the results in our code
+    if (packageId && packageId.trim().length > 0) {
+      logger.info(`Filtering for specific packages: ${packageId}`);
+      // Compare case-insensitively
+      const idList = packageId.split(',').map(id => id.trim().toUpperCase());
+      
+      packagesToProcess = allPackages.filter(pkg => 
+        idList.includes(pkg.Id.toUpperCase())
+      );
+      
+      logger.info(`Found ${packagesToProcess.length} matching packages.`);
+    } else {
+      logger.info('No specific Package IDs provided. Processing all packages.');
+      packagesToProcess = allPackages;
+    }
+    // --- END OF STEP 5 FIX ---
+
     
     // Set total for progress bar
-    await knex('download_jobs').where({ id: jobId }).update({ total: packages.length });
+    await knex('download_jobs').where({ id: jobId }).update({ total: packagesToProcess.length });
 
     // 6. Loop Packages and iFlows
     logger.info('Step 3 & 4: Looping packages and iFlows...');
     const version = 'active';
     let progress = 0;
 
-    for (const [index, pkg] of packages.entries()) {
-      logger.info(`--- Processing Package ${index + 1}/${packages.length}: ${pkg.Name} ---`);
+    // --- Use the filtered list 'packagesToProcess' ---
+    for (const [index, pkg] of packagesToProcess.entries()) { 
+      logger.info(`--- Processing Package ${index + 1}/${packagesToProcess.length}: ${pkg.Name} ---`);
       
+      // --- THIS IS THE URL YOU PROVIDED ---
       const iFlowsUrl = `${cpiBaseUrl}/IntegrationPackages('${pkg.Id}')/IntegrationDesigntimeArtifacts`;
       let iFlows = [];
       try {
@@ -99,7 +114,7 @@ async function runDownloadJob(jobId) {
         iFlows = iFlowsResponse.data.d.results;
       } catch (pkgError) {
         logger.error(`Error getting iFlows for package ${pkg.Name}: ${pkgError.message}`);
-        continue; // Skip to next package
+        continue;
       }
 
       if (iFlows.length === 0) {
@@ -126,7 +141,7 @@ async function runDownloadJob(jobId) {
           } catch (iflowError) {
             logger.error(`Error getting configs for iFlow ${iflow.Name}: ${iflowError.message}`);
             resultsStream.write([...baseRow, 'ERROR', escapeCSV(iflowError.message), ''].join(',') + '\n');
-            continue; // Skip to next iflow
+            continue;
           }
           
           if (configurations.length === 0) {
@@ -147,7 +162,7 @@ async function runDownloadJob(jobId) {
       
       // Update progress
       progress++;
-      if (progress % 5 === 0 || progress === packages.length) {
+      if (progress % 5 === 0 || progress === packagesToProcess.length) {
         await knex('download_jobs').where({ id: jobId }).update({ progress: progress });
       }
     } // end package loop
@@ -172,11 +187,11 @@ async function runDownloadJob(jobId) {
 
     // 9. Write the final audit log
     try {
-      await axios.post(`http://localhost:${PORT}/api/log`, {
+      await axios.post(`${API_URL}/api/log`, {
         projectName, environment, userName,
         activityType: 'Download',
         logFile: `logs/${logFileName}`,
-        resultFile: `results/${resultsFileName}`, // Also log the result file
+        resultFile: `results/${resultsFileName}`,
         executionTimestamp: formattedTimestamp.replace('_', ' ')
       });
     } catch (logError) {
@@ -188,24 +203,17 @@ async function runDownloadJob(jobId) {
   }
 }
 
-// --- 3. runUploadJob ---
 
+// --- 3. runUploadJob ---
 async function runUploadJob(jobId) {
-  // 1. Get job data from DB
+  // 1. Get job data
   const job = await knex('upload_jobs').where({ id: jobId }).first();
   const { formData, filePath } = JSON.parse(job.form_data_json);
   const { projectName, environment, userName, cpiBaseUrl, tokenUrl, clientId, clientSecret, version = 'active' } = formData;
 
-
-  // --- 👇 THIS IS THE FIX ---
-  // 2. Create a NEW timestamp when the job *actually starts*.
-  // This ignores the database's UTC 'created_at' and uses system time.
-  const executionTimestamp = new Date();
+  // 2. Create logger and result file
+  const executionTimestamp = new Date(job.created_at);
   const formattedTimestamp = getFormattedTimestamp(executionTimestamp);
-  // --- END OF FIX ---
-
-
-  // 3. Create logger and result file using the new timestamp
   const logFileName = `run_${formattedTimestamp}.log`;
   const logFilePath = path.join(logsDir, logFileName);
   
@@ -232,14 +240,14 @@ async function runUploadJob(jobId) {
   let finalStatus = 'Failed';
   
   try {
-    // 4. Update job to 'Running'
+    // 3. Update job to 'Running'
     await knex('upload_jobs').where({ id: jobId }).update({
       status: 'Running',
       log_file_path: `logs/${logFileName}`,
       result_file_path: `results/${resultsFileName}`
     });
 
-    // 5. Get Auth Token
+    // 4. Get Auth Token
     logger.info('Getting Auth Token...');
     const tokenAuth = { username: clientId, password: clientSecret };
     const tokenBody = new URLSearchParams();
@@ -250,7 +258,7 @@ async function runUploadJob(jobId) {
     const accessToken = tokenResponse.data.access_token;
     logger.info('Auth Token acquired.');
 
-    // 6. Get CSRF Token
+    // 5. Get CSRF Token
     logger.info('Getting CSRF Token...');
     const sapApi = axios.create({
       baseURL: cpiBaseUrl,
@@ -261,7 +269,7 @@ async function runUploadJob(jobId) {
     const csrfToken = csrfResponse.headers['x-csrf-token'];
     logger.info('CSRF Token acquired.');
 
-    // 7. Parse CSV and get total
+    // 6. Parse CSV and get total
     const rows = [];
     await new Promise((resolve, reject) => {
       fs.createReadStream(filePath)
@@ -277,14 +285,13 @@ async function runUploadJob(jobId) {
     await knex('upload_jobs').where({ id: jobId }).update({ total: rows.length });
     logger.info(`CSV Parsed. ${rows.length} rows to process.`);
 
-    // 8. Loop and process each row
+    // 7. Loop and process each row
     let progress = 0;
     for (const row of rows) {
       
       logger.info(`Processing row data: ${JSON.stringify(row)}`);
       const { IflowID, ParameterKey, ParameterValue, DataType } = row;
       
-      // Validation check
       if (!IflowID || !ParameterKey || ParameterValue === null || ParameterValue === undefined) {
         logger.warn(`Skipping row: Missing IflowID, ParameterKey, or ParameterValue.`);
         const outputRow = [
@@ -324,7 +331,7 @@ async function runUploadJob(jobId) {
         const errorMsg = rowError.response ? JSON.stringify(rowError.response.data) : rowError.message;
         logger.error(`Failed: ${row.IflowName || IflowID} -> ${ParameterKey}. Error: ${errorMsg}`);
         const outputRow = [
-          escapeCSV(row.PackageName), escapeCSV(row.PackageID), escapeCSV(row.IfNlowName), escapeCSV(row.IflowID),
+          escapeCSV(row.PackageName), escapeCSV(row.PackageID), escapeCSV(row.IflowName), escapeCSV(row.IflowID),
           escapeCSV(row.ParameterKey), escapeCSV(row.ParameterValue), escapeCSV(row.DataType),
           statusCode, 'Failed', escapeCSV(errorMsg)
         ];
@@ -336,9 +343,8 @@ async function runUploadJob(jobId) {
         await knex('upload_jobs').where({ id: jobId }).update({ progress: progress });
       }
     }
-    // --- END OF LOOP ---
 
-    // 9. Finish Job
+    // 8. Finish Job
     logger.info('Upload processing complete.');
     finalStatus = 'Complete';
 
@@ -348,33 +354,35 @@ async function runUploadJob(jobId) {
     finalStatus = 'Failed';
   
   } finally {
-    // 10. Close streams
+    // 9. Close streams
     resultsStream.end();
-    fs.unlinkSync(filePath); // Delete the temp upload file
+    fs.unlinkSync(filePath);
 
-    // 11. Update job status
+    // 10. Update job status
     await knex('upload_jobs').where({ id: jobId }).update({
       status: finalStatus,
       progress: (finalStatus === 'Complete') ? (await knex('upload_jobs').where({ id: jobId }).first()).total : undefined
     });
 
-    // 12. FINAL LOGGING STEP
+    // 11. FINAL LOGGING STEP
     try {
-      await axios.post(`http://localhost:${PORT}/api/log`, {
+      // --- 👇 USE THE IMPORTED API_URL ---
+      await axios.post(`${API_URL}/api/log`, {
         projectName, environment, userName,
         activityType: 'Upload',
         logFile: `logs/${logFileName}`,
         resultFile: `results/${resultsFileName}`,
-        executionTimestamp: formattedTimestamp.replace('_', ' ') // Use the new local timestamp
+        executionTimestamp: formattedTimestamp.replace('_', ' ')
       });
     } catch (logError) {
       console.error("Failed to write final upload log:", logError.message);
     }
-
-    // 13. Close the logger
+    
+    // 12. Close logger
     logger.end();
   }
 }
+
 
 // --- 4. Export the job functions ---
 module.exports = {

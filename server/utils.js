@@ -48,6 +48,11 @@ function escapeCSV(cell) {
   return str;
 }
 
+// --- 👇 NEW: API Constants ---
+const API_PORT = 3001;
+const API_URL = `http://localhost:${API_PORT}`;
+// --- End of new constants ---
+
 // --- 6. Export everything ---
 module.exports = {
   logsDir,
@@ -61,4 +66,6 @@ module.exports = {
   winston,
   axios: require('axios'),
   csv: require('csv-parser'),
+  API_PORT, // <-- Export
+  API_URL,  // <-- Export
 };

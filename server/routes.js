@@ -1,6 +1,6 @@
 // server/routes.js
 const { knex } = require('./db.js');
-const { upload, path, getFormattedTimestamp } = require('./utils.js');
+const { upload, path, getFormattedTimestamp, API_URL } = require('./utils.js');
 const { runDownloadJob, runUploadJob } = require('./jobs.js');
 
 // This function will define all our routes
@@ -20,6 +20,51 @@ function defineRoutes(app) {
       res.status(201).json({ message: 'Log created' });
     } catch (error) {
       console.error('DB Log Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+    // --- 👇 NEW: Get all logs ---
+  app.get('/api/logs', async (req, res) => {
+    try {
+      const logs = await knex('logs').select('*').orderBy('id', 'desc');
+      res.json(logs);
+    } catch (error) {
+      console.error('Error fetching logs:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // --- 👇 NEW: Download a specific execution log file ---
+  app.get('/api/download/log/:logId', async (req, res) => {
+    try {
+      const { logId } = req.params;
+      const log = await knex('logs').where({ id: logId }).first();
+      
+      if (!log || !log.logFile) {
+        return res.status(404).json({ error: 'Log file not found.' });
+      }
+      
+      const filePath = path.join(__dirname, log.logFile);
+      res.download(filePath);
+    } catch (error) {
+      console.error(`Error getting log file for ID ${req.params.logId}:`, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // --- 👇 NEW: Download a specific result file ---
+  app.get('/api/download/result/:logId', async (req, res) => {
+    try {
+      const { logId } = req.params;
+      const log = await knex('logs').where({ id: logId }).first();
+      
+      if (!log || !log.resultFile) {
+        return res.status(404).json({ error: 'Result file not found.' });
+      }
+      
+      const filePath = path.join(__dirname, log.resultFile);
+      res.download(filePath);
+    } catch (error) {
+      console.error(`Error getting result file for ID ${req.params.logId}:`, error.message);
       res.status(500).json({ error: error.message });
     }
   });
@@ -64,9 +109,13 @@ function defineRoutes(app) {
     try {
       const { jobId } = req.params;
       const job = await knex('download_jobs').where({ id: jobId }).first();
+      
+      // --- THIS IS THE FIX ---
       if (!job || !job.result_file_path) {
-        return res.status(404).json({ error: 'Result file not found.' });
+        return res.status(404).json({ error: 'Result file not found.' }); // Was 4O4
       }
+      // --- END OF FIX ---
+
       const filePath = path.join(__dirname, job.result_file_path);
       const filename = path.basename(filePath);
       res.download(filePath, filename);
