@@ -42,6 +42,26 @@ async function setupDatabase() {
     });
     console.log("'upload_jobs' table created.");
   }
+
+  // --- 3. Create the new 'download_jobs' table ---
+  const downloadJobsTableExists = await knex.schema.hasTable('download_jobs');
+  if (!downloadJobsTableExists) {
+    console.log("Creating 'download_jobs' table...");
+    await knex.schema.createTable('download_jobs', (table) => {
+      table.increments('id').primary();
+      table.string('status'); // Pending, Running, Complete, Failed
+      table.integer('progress'); // e.g., 300
+      table.integer('total');    // e.g., 1000
+      table.string('log_file_path');
+      table.string('result_file_path'); // Path to the final CSV
+      table.text('form_data_json');   // Stores credentials
+      table.timestamp('created_at').defaultTo(knex.fn.now());
+    });
+    console.log("'download_jobs' table created.");
+  }
+
 }
+
+
 
 module.exports = { knex, setupDatabase };

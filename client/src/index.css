@@ -368,3 +368,60 @@ h1, h2, h3 {
 .download-link:hover {
   background-color: #003b7a;
 }
+
+/* client/src/index.css (add to end) */
+
+/* --- 8. Home Page Info Cards --- */
+.info-card {
+  background: #ffffff;
+  padding: 1.5rem 2rem;
+  margin: 0 auto 1.5rem auto; /* Center the card */
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  max-width: 900px;
+}
+
+.info-card h3 {
+  color: var(--sap-blue);
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.info-card p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+/* Specific list for info cards */
+.info-list {
+  list-style: none; /* Remove default bullets */
+  padding-left: 0;
+}
+
+.info-list li {
+  margin-bottom: 1.25rem;
+  line-height: 1.6;
+}
+
+.info-list li p {
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+  color: #555;
+}
+
+/* Style for code examples */
+.info-card code {
+  background-color: #f0f0f0;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+  color: #d6336c; /* A pinkish color for code */
+  font-size: 0.9rem;
+}
+
+.info-card em {
+  color: #555;
+  font-style: italic;
+  font-size: 0.9rem;
+}

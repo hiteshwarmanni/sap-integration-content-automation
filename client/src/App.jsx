@@ -8,41 +8,117 @@ const API_URL = 'http://localhost:3001';
 
 // --- 1. Define Your Pages ---
 
+// --- 👇 HomePage (Updated with Instructions) ---
 function HomePage() {
   return (
     <div className="page-content">
       <h2>Welcome to the SAP Automation Tool</h2>
-      <p>Select an action from the menu to begin.</p>
+      <p style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        This tool automates managing SAP CPI iFlow configurations.
+      </p>
+
+      {/* --- Card 1: What it Does --- */}
+      <div className="info-card">
+        <h3>What This App Does</h3>
+        <ul className="info-list">
+          <li>
+            <strong>Download Config:</strong>
+            <p>
+              Batch-downloads all iFlow parameters from your tenant into a single CSV file. This is perfect for backups, audits, or preparing for a bulk update.
+            </p>
+          </li>
+          <li>
+            <strong>Upload Config:</strong>
+            <p>
+              Updates iFlow parameters in bulk by uploading a modified CSV file. This saves hours of manual copy-pasting in the CPI interface.
+            </p>
+          </li>
+        </ul>
+      </div>
+
+      {/* --- Card 2: Credentials Format --- */}
+      <div className="info-card">
+        <h3>Credentials Format</h3>
+        <p>Both tools require the same credentials from your SAP BTP service key for the **Process Integration Runtime** (api-access) plan.</p>
+        <ul className="info-list">
+          <li>
+            <strong>CPI Base URL:</strong> The <code>url</code> from the <code>api</code> section of your service key.
+            <br />
+            <em>Example: <code>https://your-tenant.api.sap</code></em>
+          </li>
+          <li>
+            <strong>Token URL:</strong> The <code>url</code> from the <code>uaa</code> section of your service key, with <code>/oauth/token</code> appended.
+            <br />
+            <em>Example: <code>https://your-tenant.authentication.sap/oauth/token</code></em>
+          </li>
+          <li>
+            <strong>Client ID:</strong> The <code>clientid</code> from the service key.
+          </li>
+          <li>
+            <strong>Client Secret:</strong> The <code>clientsecret</code> from the service key.
+          </li>
+        </ul>
+      </div>
+
+      {/* --- Card 3: CSV Format --- */}
+      <div className="info-card">
+        <h3>CSV File Format</h3>
+        <p>
+          The <strong>Upload Config</strong> tool requires a specific CSV format. The easiest way to get this is to first use the <strong>Download Config</strong> tool.
+        </p>
+        <p>
+          The file you download is the perfect template to use for your uploads.
+        </p>
+      </div>
     </div>
   );
 }
+// --- End of HomePage ---
 
-// --- 👇 Download Page (Updated to Single Column) ---
+// --- 👇 Download Page (Updated to Job System) ---
 function DownloadPage() {
-  // --- Create initial empty state for reset ---
   const initialFormState = {
-    projectName: '',
-    environment: '',
-    userName: '',
-    cpiBaseUrl: '',
-    tokenUrl: '',
-    clientId: '',
-    clientSecret: ''
+    projectName: '', environment: '', userName: '',
+    cpiBaseUrl: '', tokenUrl: '', clientId: '', clientSecret: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
   
+  // --- State for Job Management ---
+  const [jobId, setJobId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [jobStatus, setJobStatus] = useState(null); // Will hold { status, progress, total, resultFile }
+  const [pollInterval, setPollInterval] = useState(null);
 
-  // Generic handler to update state from any input
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prevState => ({
-      ...prevState,
-      [name]: value
-    }));
+    setFormData(prevState => ({ ...prevState, [name]: value }));
+  };
+
+  // --- Polling Function ---
+  const pollJobStatus = (id) => {
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/api/v1/download-job-status/${id}`);
+        setJobStatus({ ...data, jobId: id }); 
+
+        if (data.status === 'Complete' || data.status === 'Failed') {
+          clearInterval(interval);
+          setPollInterval(null);
+          setIsLoading(false);
+          if(data.status === 'Failed') {
+            setError('Job failed. Check logs for details.');
+          }
+        }
+      } catch (pollError) {
+        setError('Error checking job status.');
+        clearInterval(interval);
+        setPollInterval(null);
+        setIsLoading(false);
+      }
+    }, 2000); // Poll every 2 seconds
+    setPollInterval(interval);
   };
 
   // --- Form submission handler ---
@@ -50,57 +126,27 @@ function DownloadPage() {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    setSuccessMessage('');
+    setJobStatus(null);
+    if(pollInterval) clearInterval(pollInterval);
 
-    // 1. Log the activity
-    /*try {
-      await axios.post(`${API_URL}/api/log`, {
-        projectName: formData.projectName,
-        environment: formData.environment,
-        userName: formData.userName,
-        activityType: 'Download'
-      });
-    } catch (logError) {
-      console.warn('Logging failed:', logError.message);
-    }*/
-
-    // 2. Call the main download endpoint
     try {
-      const response = await axios.post(
-        `${API_URL}/api/v1/run-download`,
-        formData,
-        { responseType: 'blob' }
+      // 1. Start the job
+      const { data } = await axios.post(
+        `${API_URL}/api/v1/start-download-job`,
+        formData // Send form data as JSON
       );
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
       
-      const { projectName, environment } = formData;
-      const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const timestamp = new Date().toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
-      const filename = `${projectName}_${environment}_configurations_${date}_${timestamp}.csv`;
+      // 2. Start polling
+      setJobId(data.jobId);
+      pollJobStatus(data.jobId);
       
-      link.setAttribute('download', filename);
-      
-      document.body.appendChild(link);
-      link.click();
-      
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      setSuccessMessage(`Success! File downloaded as: ${filename}`);
-
     } catch (apiError) {
-      console.error('Download Error:', apiError);
+      console.error('Download Start Error:', apiError);
       if (apiError.response && apiError.response.data) {
-        const errorText = await apiError.response.data.text();
-        const errorJson = JSON.parse(errorText);
-        setError(`Error: ${errorJson.error}`);
+        setError(`Error: ${apiError.response.data.error}`);
       } else {
         setError('An unknown error occurred. Check the server console.');
       }
-    } finally {
       setIsLoading(false);
     }
   };
@@ -109,60 +155,70 @@ function DownloadPage() {
   const handleReset = () => {
     setFormData(initialFormState);
     setError('');
-    setSuccessMessage('');
+    setJobId(null);
+    setJobStatus(null);
+    setIsLoading(false);
+    if(pollInterval) clearInterval(pollInterval);
   };
-
+  
   return (
     <div className="page-content">
       <h2>Download Configuration</h2>
       
       {/* --- Status & Progress Section --- */}
       <div className="status-container">
-        {isLoading && (
+        {/* Progress Bar */}
+        {isLoading && jobStatus && jobStatus.status === 'Running' && (
           <div className="progress-bar-container">
-            <span>Processing request... this may take a moment.</span>
+            <span>{`Processing: ${jobStatus.progress} / ${jobStatus.total} packages...`}</span>
+            <progress className="progress-bar" value={jobStatus.progress} max={jobStatus.total}></progress>
+          </div>
+        )}
+        {isLoading && !jobStatus && (
+          <div className="progress-bar-container">
+            <span>Starting job...</span>
             <progress className="progress-bar"></progress>
           </div>
         )}
-        {successMessage && <div className="form-success">{successMessage}</div>}
+        
+        {/* Download Link */}
+        {jobStatus && jobStatus.status === 'Complete' && (
+          <div className="form-success">
+            Job complete! 
+            <a href={`${API_URL}/api/v1/get-download-result/${jobStatus.jobId}`} className="download-link">Download Config CSV</a>
+          </div>
+        )}
         {error && <div className="form-error">{error}</div>}
       </div>
       
+      {/* Form (no change) */}
       <form className="modern-form" onSubmit={handleSubmit}>
-          
+          {/* ... (all form-group divs) ... */}
           <div className="form-group">
             <label>Project Name *</label>
             <input 
-              type="text" 
-              name="projectName"
-              value={formData.projectName}
-              onChange={handleInputChange}
+              type="text" name="projectName"
+              value={formData.projectName} onChange={handleInputChange}
               placeholder="e.g., MyCPIProject" 
-              required 
-              disabled={isLoading}
+              required disabled={isLoading}
             />
           </div>
 
           <div className="form-group">
             <label>Environment *</label>
             <input 
-              type="text" 
-              name="environment"
-              value={formData.environment}
-              onChange={handleInputChange}
+              type="text" name="environment"
+              value={formData.environment} onChange={handleInputChange}
               placeholder="e.g., Development" 
-              required 
-              disabled={isLoading}
+              required disabled={isLoading}
             />
           </div>
 
           <div className="form-group">
             <label>User Name</label>
             <input 
-              type="text" 
-              name="userName"
-              value={formData.userName}
-              onChange={handleInputChange}
+              type="text" name="userName"
+              value={formData.userName} onChange={handleInputChange}
               placeholder="Your name or S-User" 
               disabled={isLoading}
             />
@@ -171,54 +227,43 @@ function DownloadPage() {
           <div className="form-group">
             <label>CPI Base URL *</label>
             <input 
-              type="text" 
-              name="cpiBaseUrl"
-              value={formData.cpiBaseUrl}
-              onChange={handleInputChange}
+              type="text" name="cpiBaseUrl"
+              value={formData.cpiBaseUrl} onChange={handleInputChange}
               placeholder="https://your-tenant.api.sap" 
-              required 
-              disabled={isLoading}
+              required disabled={isLoading}
             />
           </div>
 
           <div className="form-group">
             <label>Token URL *</label>
             <input 
-              type="text" 
-              name="tokenUrl"
-              value={formData.tokenUrl}
-              onChange={handleInputChange}
+              type="text" name="tokenUrl"
+              value={formData.tokenUrl} onChange={handleInputChange}
               placeholder="https://your-tenant.authentication.sap" 
-              required 
-              disabled={isLoading}
+              required disabled={isLoading}
             />
           </div>
 
           <div className="form-group">
             <label>Client ID *</label>
             <input 
-              type="text" 
-              name="clientId"
-              value={formData.clientId}
-              onChange={handleInputChange}
-              required 
-              disabled={isLoading}
+              type="text" name="clientId"
+              value={formData.clientId} onChange={handleInputChange}
+              placeholder="Copy from service key" 
+              required disabled={isLoading}
             />
           </div>
 
           <div className="form-group">
             <label>Client Secret *</label>
             <input 
-              type="password"
-              name="clientSecret"
-              value={formData.clientSecret}
-              onChange={handleInputChange}
-              required 
-              disabled={isLoading}
+              type="password" name="clientSecret"
+              value={formData.clientSecret} onChange={handleInputChange}
+              placeholder="Copy from service key" 
+              required disabled={isLoading}
             />
           </div>
-        
-        {/* --- Adds space before buttons --- */}
+
         <div style={{ marginBottom: '1.5rem' }}></div> 
 
         <div className="button-group">
@@ -226,12 +271,7 @@ function DownloadPage() {
             {isLoading ? 'Downloading...' : 'Download Config'}
           </button>
           
-          <button 
-            type="button" 
-            className="btn-secondary" 
-            onClick={handleReset} 
-            disabled={isLoading}
-          >
+          <button type="button" className="btn-secondary" onClick={handleReset} disabled={isLoading}>
             Reset
           </button>
         </div>
@@ -381,16 +421,86 @@ function UploadPage() {
       
       {/* Form (no change) */}
       <form className="modern-form" onSubmit={handleSubmit}>
-          {/* ... (all form-group divs) ... */}
-          <div className="form-group"><label>Project Name *</label><input type="text" name="projectName" value={formData.projectName} onChange={handleInputChange} required disabled={isLoading} /></div>
-          <div className="form-group"><label>Environment *</label><input type="text" name="environment" value={formData.environment} onChange={handleInputChange} required disabled={isLoading} /></div>
-          <div className="form-group"><label>User Name</label><input type="text" name="userName" value={formData.userName} onChange={handleInputChange} disabled={isLoading} /></div>
-          <div className="form-group"><label>CPI Base URL *</label><input type="text" name="cpiBaseUrl" value={formData.cpiBaseUrl} onChange={handleInputChange} required disabled={isLoading} /></div>
-          <div className="form-group"><label>Token URL *</label><input type="text" name="tokenUrl" value={formData.tokenUrl} onChange={handleInputChange} required disabled={isLoading} /></div>
-          <div className="form-group"><label>Client ID *</label><input type="text" name="clientId" value={formData.clientId} onChange={handleInputChange} required disabled={isLoading} /></div>
-          <div className="form-group"><label>Client Secret *</label><input type="password" name="clientSecret" value={formData.clientSecret} onChange={handleInputChange} required disabled={isLoading} /></div>
-          <div className="form-group"><label>Upload CSV File *</label><input type="file" id="file-input" accept=".csv" onChange={handleFileChange} required disabled={isLoading} /></div>
-        
+          <div className="form-group">
+            <label>Project Name *</label>
+            <input 
+              type="text" name="projectName"
+              value={formData.projectName} onChange={handleInputChange}
+              placeholder="e.g., MyCPIProject" 
+              required disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Environment *</label>
+            <input 
+              type="text" name="environment"
+              value={formData.environment} onChange={handleInputChange}
+              placeholder="e.g., Development" 
+              required disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>User Name</label>
+            <input 
+              type="text" name="userName"
+              value={formData.userName} onChange={handleInputChange}
+              placeholder="Your name or S-User" 
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>CPI Base URL *</label>
+            <input 
+              type="text" name="cpiBaseUrl"
+              value={formData.cpiBaseUrl} onChange={handleInputChange}
+              placeholder="https://your-tenant.api.sap" 
+              required disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Token URL *</label>
+            <input 
+              type="text" name="tokenUrl"
+              value={formData.tokenUrl} onChange={handleInputChange}
+              placeholder="https://your-tenant.authentication.sap" 
+              required disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Client ID *</label>
+            <input 
+              type="text" name="clientId"
+              value={formData.clientId} onChange={handleInputChange}
+              placeholder="Copy from service key" 
+              required disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Client Secret *</label>
+            <input 
+              type="password" name="clientSecret"
+              value={formData.clientSecret} onChange={handleInputChange}
+              placeholder="Copy from service key" 
+              required disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Upload CSV File *</label>
+            <input 
+              type="file" id="file-input" 
+              accept=".csv" 
+              onChange={handleFileChange} 
+              required disabled={isLoading}
+            />
+          </div>
+
         <div style={{ marginBottom: '1.5rem' }}></div> 
 
         <div className="button-group">

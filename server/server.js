@@ -76,15 +76,26 @@ app.post('/api/log', async (req, res) => {
   }
 });
 
-// --- Download Logic Endpoint (Corrected and Complete) ---
-app.post('/api/v1/run-download', async (req, res) => {
+// --- 👇 The Main Download Job Logic (With Updated Filename) ---
+async function runDownloadJob(jobId) {
+  // 1. Get job data
+  const job = await knex('download_jobs').where({ id: jobId }).first();
+  const { formData } = JSON.parse(job.form_data_json);
+  
+  // --- 👇 Get project and environment from formData ---
+  const { projectName, environment, userName, cpiBaseUrl, tokenUrl, clientId, clientSecret } = formData;
 
-  // 1. Generate timestamp and logger
-  const executionTimestamp = new Date();
+  // 2. Create logger and result file
+  const executionTimestamp = new Date(job.created_at);
   const formattedTimestamp = getFormattedTimestamp(executionTimestamp);
-  const logFileName = `run_${formattedTimestamp}.log`;
+  const logFileName = `run_download_${formattedTimestamp}.log`;
   const logFilePath = path.join(logsDir, logFileName);
   
+  // --- 👇 THIS IS THE FILENAME CHANGE ---
+  const resultsFileName = `${projectName}_${environment}_configurations_${formattedTimestamp}.csv`;
+  const resultsFilePath = path.join(resultsDir, resultsFileName);
+  // --- END OF FILENAME CHANGE ---
+
   const logger = winston.createLogger({
     level: 'info', format: loggerFormat,
     transports: [
@@ -92,25 +103,22 @@ app.post('/api/v1/run-download', async (req, res) => {
       new winston.transports.File({ filename: logFilePath })
     ]
   });
-
-  logger.info('Download request received...');
   
-  const {
-    projectName, environment, userName,
-    cpiBaseUrl, tokenUrl, clientId, clientSecret
-  } = req.body;
-
-  // Simple validation
-  if (!cpiBaseUrl || !tokenUrl || !clientId || !clientSecret) {
-    logger.error('Validation failed: Missing required API credentials');
-    logger.end();
-    return res.status(400).json({ error: 'Missing required API credentials' });
-  }
-
-  let accessToken = '';
+  const resultsStream = fs.createWriteStream(resultsFilePath);
+  const headers = ["PackageName", "PackageID", "IflowName", "IflowID", "ParameterKey", "ParameterValue", "DataType"];
+  resultsStream.write(headers.join(',') + '\n');
+  
+  let finalStatus = 'Failed';
 
   try {
-    // --- Step 1: Get Auth Token ---
+    // 3. Update job to 'Running'
+    await knex('download_jobs').where({ id: jobId }).update({
+      status: 'Running',
+      log_file_path: `logs/${logFileName}`,
+      result_file_path: `results/${resultsFileName}` // Save the new dynamic path
+    });
+
+    // 4. Get Auth Token
     logger.info('Step 1: Getting Auth Token...');
     const tokenAuth = { username: clientId, password: clientSecret };
     const tokenBody = new URLSearchParams();
@@ -118,24 +126,28 @@ app.post('/api/v1/run-download', async (req, res) => {
     const tokenResponse = await axios.post(tokenUrl, tokenBody, {
       auth: tokenAuth, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
-    accessToken = tokenResponse.data.access_token;
+    const accessToken = tokenResponse.data.access_token;
     logger.info('Token acquired.');
 
-    // --- Step 2: Get All Integration Packages ---
+    // 5. Get All Packages
     logger.info('Step 2: Getting Integration Packages...');
     const authHeader = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' };
     const packagesUrl = `${cpiBaseUrl}/IntegrationPackages`;
     const packagesResponse = await axios.get(packagesUrl, { headers: authHeader });
     const packages = packagesResponse.data.d.results;
     logger.info(`Found ${packages.length} packages.`);
+    
+    // Set total for progress bar
+    await knex('download_jobs').where({ id: jobId }).update({ total: packages.length });
 
-    // --- Step 3 & 4: Loop Packages and iFlows ---
+    // 6. Loop Packages and iFlows
     logger.info('Step 3 & 4: Looping packages and iFlows...');
-    const allConfigData = []; // This array will now be filled
     const version = 'active';
+    let progress = 0;
 
     for (const [index, pkg] of packages.entries()) {
       logger.info(`--- Processing Package ${index + 1}/${packages.length}: ${pkg.Name} ---`);
+      
       const iFlowsUrl = `${cpiBaseUrl}/IntegrationPackages('${pkg.Id}')/IntegrationDesigntimeArtifacts`;
       let iFlows = [];
       try {
@@ -143,109 +155,166 @@ app.post('/api/v1/run-download', async (req, res) => {
         iFlows = iFlowsResponse.data.d.results;
       } catch (pkgError) {
         logger.error(`Error getting iFlows for package ${pkg.Name}: ${pkgError.message}`);
-        continue;
+        continue; // Skip to next package
       }
 
       if (iFlows.length === 0) {
         logger.warn(`No iFlows found for package: ${pkg.Name}`);
-        // --- 👇 ADD BLANK ROW FOR EMPTY PACKAGE ---
-        allConfigData.push({
-          PackageName: pkg.Name,
-          PackageID: pkg.Id,
-          IflowName: '',
-          IflowID: '',
-          ParameterKey: '',
-          ParameterValue: '',
-          DataType: ''
-        });
-        continue;
-      }
-      logger.info(`Found ${iFlows.length} iFlows for package: ${pkg.Name}`);
-
-      for (const iflow of iFlows) {
-        const configsUrl = `${cpiBaseUrl}/IntegrationDesigntimeArtifacts(Id='${iflow.Id}',Version='${version}')/Configurations`;
-        let configurations = [];
-        
-        // --- 👇 THIS IS THE BASE ROW DATA ---
-        const baseRow = {
-          PackageName: pkg.Name,
-          PackageID: pkg.Id,
-          IflowName: iflow.Name,
-          IflowID: iflow.Id
-        };
-        
-        try {
-          const configResponse = await axios.get(configsUrl, { headers: authHeader });
-          configurations = configResponse.data.d.results;
-        } catch (iflowError) {
-          logger.error(`Error getting configs for iFlow ${iflow.Name}: ${iflowError.message}`);
-          // --- 👇 ADD ERROR ROW ---
-          allConfigData.push({
-            ...baseRow,
-            ParameterKey: 'ERROR',
-            ParameterValue: iflowError.message,
-            DataType: ''
-          });
-          continue;
-        }
-        
-        if (configurations.length === 0) {
-          // --- 👇 ADD BLANK ROW FOR IFLOW WITH NO CONFIGS ---
-          allConfigData.push({ ...baseRow, ParameterKey: '', ParameterValue: '', DataType: '' });
-        } else {
-          // --- 👇 ADD ONE ROW PER CONFIGURATION ---
-          configurations.forEach(config => {
-            allConfigData.push({
-              ...baseRow,
-              ParameterKey: config.ParameterKey,
-              ParameterValue: config.ParameterValue,
-              DataType: config.DataType
+        resultsStream.write([
+          escapeCSV(pkg.Name), escapeCSV(pkg.Id), '', '', '', '', ''
+        ].join(',') + '\n');
+      } else {
+        logger.info(`Found ${iFlows.length} iFlows for package: ${pkg.Name}`);
+        for (const iflow of iFlows) {
+          const configsUrl = `${cpiBaseUrl}/IntegrationDesigntimeArtifacts(Id='${iflow.Id}',Version='${version}')/Configurations`;
+          let configurations = [];
+          
+          const baseRow = [
+            escapeCSV(pkg.Name),
+            escapeCSV(pkg.Id),
+            escapeCSV(iflow.Name),
+            escapeCSV(iflow.Id)
+          ];
+          
+          try {
+            const configResponse = await axios.get(configsUrl, { headers: authHeader });
+            configurations = configResponse.data.d.results;
+          } catch (iflowError) {
+            logger.error(`Error getting configs for iFlow ${iflow.Name}: ${iflowError.message}`);
+            resultsStream.write([...baseRow, 'ERROR', escapeCSV(iflowError.message), ''].join(',') + '\n');
+            continue; // Skip to next iflow
+          }
+          
+          if (configurations.length === 0) {
+            resultsStream.write([...baseRow, '', '', ''].join(',') + '\n');
+          } else {
+            configurations.forEach(config => {
+              const configRow = [
+                ...baseRow,
+                escapeCSV(config.ParameterKey),
+                escapeCSV(config.ParameterValue),
+                escapeCSV(config.DataType)
+              ];
+              resultsStream.write(configRow.join(',') + '\n');
             });
-          });
-        }
+          }
+        } // end iflow loop
       }
-    }
+      
+      // Update progress
+      progress++;
+      if (progress % 5 === 0 || progress === packages.length) {
+        await knex('download_jobs').where({ id: jobId }).update({ progress: progress });
+      }
+    } // end package loop
     
-    logger.info('All data fetched. Generating CSV.');
-    const headers = ["PackageName", "PackageID", "IflowName", "IflowID", "ParameterKey", "ParameterValue", "DataType"];
-    const csvHeader = headers.join(',') + '\n';
-    const csvRows = allConfigData.map(row => 
-      headers.map(header => escapeCSV(row[header])).join(',')
-    ).join('\n');
-    
-    const csvContent = csvHeader + csvRows;
-
-    logger.info('Sending CSV file to client.');
-    
-    // Log to DB *before* sending response
-    await axios.post(`http://localhost:${PORT}/api/log`, {
-      projectName, environment, userName,
-      activityType: 'Download',
-      logFile: `logs/${logFileName}`,
-      executionTimestamp: formattedTimestamp.replace('_', ' ')
-    });
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="configurations.csv"');
-    res.status(200).send(csvContent);
+    logger.info('All data fetched. CSV generated.');
+    finalStatus = 'Complete';
 
   } catch (error) {
     const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
     logger.error(`FATAL DOWNLOAD ERROR: ${errorMsg}`);
-    
-    // Log failure to DB
-    await axios.post(`http://localhost:${PORT}/api/log`, {
-      projectName, environment, userName,
-      activityType: 'Download',
-      logFile: `logs/${logFileName}`,
-      executionTimestamp: formattedTimestamp.replace('_', ' '),
-    });
-
-    res.status(500).json({ error: error.message });
+    finalStatus = 'Failed';
   
   } finally {
-    // This runs *after* try or catch
-    logger.end(); // Close the log stream
+    // 7. Close streams
+    resultsStream.end();
+
+    // 8. Update job status
+    await knex('download_jobs').where({ id: jobId }).update({
+      status: finalStatus,
+      progress: (finalStatus === 'Complete') ? (await knex('download_jobs').where({ id: jobId }).first()).total : undefined
+    });
+
+    // 9. Write the final audit log
+    try {
+      await axios.post(`http://localhost:${PORT}/api/log`, {
+        projectName, environment, userName,
+        activityType: 'Download',
+        logFile: `logs/${logFileName}`,
+        resultFile: `results/${resultsFileName}`, // Also log the result file
+        executionTimestamp: formattedTimestamp.replace('_', ' ')
+      });
+    } catch (logError) {
+      console.error("Failed to write final download log:", logError.message);
+    }
+    
+    // 10. Close logger
+    logger.end();
+  }
+}
+
+// --- 👇 REPLACED 'run-download' with a job system ---
+
+// --- NEW Download Endpoint (STEP 1: Start Job) ---
+app.post('/api/v1/start-download-job', async (req, res) => {
+  try {
+    const jobData = {
+      formData: req.body,
+    };
+
+    // 1. Create a new job in the 'download_jobs' table
+    const [newJob] = await knex('download_jobs').insert({
+      status: 'Pending',
+      progress: 0,
+      total: 0,
+      form_data_json: JSON.stringify(jobData) // Store all info
+    }).returning('id');
+
+    const jobId = newJob.id || newJob[0].id || newJob[0];
+    console.log(`Download job created with ID: ${jobId}`);
+
+    // 2. Respond immediately
+    res.status(202).json({ jobId: jobId });
+    
+    // 3. Start the long-running job in the background
+    runDownloadJob(jobId);
+
+  } catch (error) {
+    console.error(`Failed to start download job: ${error.message}`);
+    res.status(500).json({ error: 'Failed to start job.' });
+  }
+});
+
+// --- NEW Download Endpoint (STEP 2: Job Status) ---
+app.get('/api/v1/download-job-status/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const job = await knex('download_jobs').where({ id: jobId }).first();
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found.' });
+    }
+    
+    res.json({
+      status: job.status,
+      progress: job.progress,
+      total: job.total,
+      resultFile: job.result_file_path
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- NEW Download Endpoint (STEP 3: Get Result File) ---
+app.get('/api/v1/get-download-result/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const job = await knex('download_jobs').where({ id: jobId }).first();
+    
+    if (!job || !job.result_file_path) {
+      return res.status(404).json({ error: 'Result file not found.' });
+    }
+    
+    const filePath = path.join(__dirname, job.result_file_path);
+    // Dynamically get filename from path
+    const filename = path.basename(filePath);
+    res.download(filePath, filename); // Send the file for download
+
+  } catch (error) {
+    console.error(`Error getting result file for job ${req.params.jobId}:`, error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
