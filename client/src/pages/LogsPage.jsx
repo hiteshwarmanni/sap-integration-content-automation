@@ -2,14 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-// We get this from the other pages
 const API_URL = 'http://localhost:3001';
 
 function LogsPage() {
   const [logs, setLogs] = useState([]);
   const [error, setError] = useState('');
 
-  // Fetch logs when the page loads
   useEffect(() => {
     const fetchLogs = async () => {
       try {
@@ -20,9 +18,8 @@ function LogsPage() {
         console.error(err);
       }
     };
-
     fetchLogs();
-  }, []); // The empty array [] means this runs once on mount
+  }, []); 
 
   return (
     <div className="page-content">
@@ -40,6 +37,7 @@ function LogsPage() {
               <th>User</th>
               <th>Activity</th>
               <th>Timestamp</th>
+              <th>Status</th> {/* <-- NEW COLUMN */}
               <th>Execution Log</th>
               <th>Result File</th>
             </tr>
@@ -47,7 +45,7 @@ function LogsPage() {
           <tbody>
             {logs.length === 0 && (
               <tr>
-                <td colSpan="8" style={{ textAlign: 'center' }}>No logs found.</td>
+                <td colSpan="9" style={{ textAlign: 'center' }}>No logs found.</td> {/* <-- colSpan updated */}
               </tr>
             )}
             {logs.map((log) => (
@@ -58,23 +56,27 @@ function LogsPage() {
                 <td>{log.userName}</td>
                 <td>{log.activityType}</td>
                 <td>{log.timestamp}</td>
+                
+                {/* --- 👇 NEW STATUS CELL --- */}
+                <td>
+                  <span className={`status-badge status-${log.status?.toLowerCase()}`}>
+                    {log.status}
+                  </span>
+                </td>
+                
                 <td>
                   {log.logFile ? (
                     <a href={`${API_URL}/api/download/log/${log.id}`} className="download-link-table">
-                      Download
+                      Log
                     </a>
-                  ) : (
-                    'N/A'
-                  )}
+                  ) : 'N/A'}
                 </td>
                 <td>
                   {log.resultFile ? (
                     <a href={`${API_URL}/api/download/result/${log.id}`} className="download-link-table">
-                      Download
+                      Result
                     </a>
-                  ) : (
-                    'N/A'
-                  )}
+                  ) : 'N/A'}
                 </td>
               </tr>
             ))}
