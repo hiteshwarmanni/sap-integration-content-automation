@@ -17,12 +17,23 @@ async function setupDatabase() {
       table.string('projectName');
       table.string('environment');
       table.string('userName');
-      table.string('activityType'); // 'Download' or 'Upload'
-      table.string('timestamp');    // The final human-readable timestamp
-      table.string('logFile');      // Path to the server execution log
-      table.string('resultFile');   // Path to the upload results CSV
+      table.string('activityType');
+      table.string('timestamp');    
+      table.string('logFile');      
+      table.string('resultFile');
+      table.string('status'); // <-- ADDED THIS COLUMN
     });
     console.log("'logs' table created.");
+  } else {
+    // --- Add column if it doesn't exist ---
+    const colExists = await knex.schema.hasColumn('logs', 'status');
+    if (!colExists) {
+      console.log("Adding 'status' column to 'logs' table...");
+      await knex.schema.alterTable('logs', (table) => {
+        table.string('status');
+      });
+      console.log("'status' column added.");
+    }
   }
 
   // --- 2. Create the new 'upload_jobs' table ---

@@ -6,23 +6,27 @@ const { runDownloadJob, runUploadJob } = require('./jobs.js');
 // This function will define all our routes
 function defineRoutes(app) {
   
-  // --- LOGGING ROUTE ---
+// --- LOGGING ROUTE (Updated) ---
   app.post('/api/log', async (req, res) => {
     try {
-      const { projectName, environment, userName, activityType, logFile, resultFile, executionTimestamp } = req.body;
+      // --- 👇 Get 'status' from the body ---
+      const { projectName, environment, userName, activityType, logFile, resultFile, executionTimestamp, status } = req.body;
+      
       await knex('logs').insert({
         projectName, environment, userName: userName || 'N/A', activityType,
         logFile: logFile || null,
         resultFile: resultFile || null,
-        timestamp: executionTimestamp ? executionTimestamp : getFormattedTimestamp(new Date()).replace('_', ' ')
+        timestamp: executionTimestamp ? executionTimestamp : getFormattedTimestamp(new Date()).replace('_', ' '),
+        status: status || 'Unknown' // <-- Save the status
       });
-      console.log('✅ Final log entry created:', { projectName, activityType });
+      console.log('✅ Final log entry created:', { projectName, activityType, status });
       res.status(201).json({ message: 'Log created' });
     } catch (error) {
       console.error('DB Log Error:', error);
       res.status(500).json({ error: error.message });
     }
   });
+  
     // --- 👇 NEW: Get all logs ---
   app.get('/api/logs', async (req, res) => {
     try {

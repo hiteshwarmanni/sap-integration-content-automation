@@ -192,7 +192,8 @@ async function runDownloadJob(jobId) {
         activityType: 'Download',
         logFile: `logs/${logFileName}`,
         resultFile: `results/${resultsFileName}`,
-        executionTimestamp: formattedTimestamp.replace('_', ' ')
+        executionTimestamp: formattedTimestamp.replace('_', ' '),
+        status: finalStatus // <-- ADD THIS LINE
       });
     } catch (logError) {
       console.error("Failed to write final download log:", logError.message);
@@ -372,7 +373,8 @@ async function runUploadJob(jobId) {
         activityType: 'Upload',
         logFile: `logs/${logFileName}`,
         resultFile: `results/${resultsFileName}`,
-        executionTimestamp: formattedTimestamp.replace('_', ' ')
+        executionTimestamp: formattedTimestamp.replace('_', ' '),
+        status: finalStatus // <-- ADD THIS LINE
       });
     } catch (logError) {
       console.error("Failed to write final upload log:", logError.message);
