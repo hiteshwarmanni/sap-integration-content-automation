@@ -12,6 +12,9 @@ import LogsPage from './pages/LogsPage'; // <-- NEW
 function App() {
   const [sideNavOpen, setSideNavOpen] = useState(true);
 
+  // This state will be shared with the Download and Upload pages
+  const [isJobRunning, setIsJobRunning] = useState(false);
+
   const handleNavClick = () => {
     if (!sideNavOpen) {
       setSideNavOpen(true);
@@ -30,7 +33,7 @@ function App() {
         
         <div className="app-body">
           <nav 
-            className={`app-nav ${sideNavOpen ? '' : 'collapsed'}`} 
+            className={`app-nav ${sideNavOpen ? '' : 'collapsed'} ${isJobRunning ? 'nav-disabled' : ''}`}
             style={{ width: sideNavOpen ? '240px' : '60px' }}
           >
             <NavLink to="/" onClick={handleNavClick}>
@@ -83,9 +86,18 @@ function App() {
             {/* The routes now point to the imported components */}
             <Routes>
               <Route path="/" element={<HomePage />} />
-              <Route path="/download" element={<DownloadPage />} />
-              <Route path="/upload" element={<UploadPage />} />
-              <Route path="/logs" element={<LogsPage />} /> {/* <-- NEW */}
+              
+              {/* --- We pass the state down to the pages as props --- */}
+              <Route 
+                path="/download" 
+                element={<DownloadPage isJobRunning={isJobRunning} setIsJobRunning={setIsJobRunning} />} 
+              />
+              <Route 
+                path="/upload" 
+                element={<UploadPage isJobRunning={isJobRunning} setIsJobRunning={setIsJobRunning} />} 
+              />
+              
+              <Route path="/logs" element={<LogsPage />} />
             </Routes>
           </main>
         </div>

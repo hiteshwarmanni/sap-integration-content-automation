@@ -6,7 +6,7 @@ import axios from 'axios';
 const API_URL = 'http://localhost:3001';
 
 // --- 👇 Download Page (Updated to Job System) ---
-function DownloadPage() {
+function DownloadPage({ isJobRunning, setIsJobRunning }) {
   const initialFormState = {
     projectName: '', environment: '', userName: '',
     cpiBaseUrl: '', tokenUrl: '', clientId: '', clientSecret: '',
@@ -17,7 +17,7 @@ function DownloadPage() {
   
   // --- State for Job Management ---
   const [jobId, setJobId] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  //const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [jobStatus, setJobStatus] = useState(null); // Will hold { status, progress, total, resultFile }
   const [pollInterval, setPollInterval] = useState(null);
@@ -37,7 +37,7 @@ function DownloadPage() {
         if (data.status === 'Complete' || data.status === 'Failed') {
           clearInterval(interval);
           setPollInterval(null);
-          setIsLoading(false);
+          setIsJobRunning(false);
           if(data.status === 'Failed') {
             setError('Job failed. Check logs for details.');
           }
@@ -46,7 +46,7 @@ function DownloadPage() {
         setError('Error checking job status.');
         clearInterval(interval);
         setPollInterval(null);
-        setIsLoading(false);
+        setIsJobRunning(false);
       }
     }, 2000); // Poll every 2 seconds
     setPollInterval(interval);
@@ -55,7 +55,7 @@ function DownloadPage() {
   // --- Form submission handler ---
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsJobRunning(true);
     setError('');
     setJobStatus(null);
     if(pollInterval) clearInterval(pollInterval);
@@ -78,7 +78,7 @@ function DownloadPage() {
       } else {
         setError('An unknown error occurred. Check the server console.');
       }
-      setIsLoading(false);
+      setIsJobRunning(false);
     }
   };
 
@@ -88,7 +88,7 @@ function DownloadPage() {
     setError('');
     setJobId(null);
     setJobStatus(null);
-    setIsLoading(false);
+    setIsJobRunning(false);
     if(pollInterval) clearInterval(pollInterval);
   };
   
@@ -99,13 +99,13 @@ function DownloadPage() {
       {/* --- Status & Progress Section --- */}
       <div className="status-container">
         {/* Progress Bar */}
-        {isLoading && jobStatus && jobStatus.status === 'Running' && (
+        {isJobRunning && jobStatus && jobStatus.status === 'Running' && (
           <div className="progress-bar-container">
             <span>{`Processing: ${jobStatus.progress} / ${jobStatus.total} packages...`}</span>
             <progress className="progress-bar" value={jobStatus.progress} max={jobStatus.total}></progress>
           </div>
         )}
-        {isLoading && !jobStatus && (
+        {isJobRunning && !jobStatus && (
           <div className="progress-bar-container">
             <span>Starting job...</span>
             <progress className="progress-bar"></progress>
@@ -131,7 +131,7 @@ function DownloadPage() {
               type="text" name="projectName"
               value={formData.projectName} onChange={handleInputChange}
               placeholder="e.g., MyCPIProject" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -141,7 +141,7 @@ function DownloadPage() {
               type="text" name="environment"
               value={formData.environment} onChange={handleInputChange}
               placeholder="e.g., Development" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -151,7 +151,7 @@ function DownloadPage() {
               type="text" name="userName"
               value={formData.userName} onChange={handleInputChange}
               placeholder="Your name or S-User" 
-              disabled={isLoading}
+              disabled={isJobRunning}
             />
           </div>
 
@@ -162,7 +162,7 @@ function DownloadPage() {
               type="text" name="packageId"
               value={formData.packageId} onChange={handleInputChange}
               placeholder="Leave blank for all, or: id1,id2,id3" 
-              disabled={isLoading}
+              disabled={isJobRunning}
             />
           </div>
           {/* --- END OF NEW FIELD --- */}
@@ -173,7 +173,7 @@ function DownloadPage() {
               type="text" name="cpiBaseUrl"
               value={formData.cpiBaseUrl} onChange={handleInputChange}
               placeholder="https://your-tenant.api.sap" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -183,7 +183,7 @@ function DownloadPage() {
               type="text" name="tokenUrl"
               value={formData.tokenUrl} onChange={handleInputChange}
               placeholder="https://your-tenant.authentication.sap" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -193,7 +193,7 @@ function DownloadPage() {
               type="text" name="clientId"
               value={formData.clientId} onChange={handleInputChange}
               placeholder="Copy from service key" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -203,18 +203,18 @@ function DownloadPage() {
               type="password" name="clientSecret"
               value={formData.clientSecret} onChange={handleInputChange}
               placeholder="Copy from service key" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
         <div style={{ marginBottom: '1.5rem' }}></div> 
 
         <div className="button-group">
-          <button type="submit" className="btn-primary" disabled={isLoading}>
-            {isLoading ? 'Downloading...' : 'Download Config'}
+          <button type="submit" className="btn-primary" disabled={isJobRunning}>
+            {isJobRunning ? 'Downloading...' : 'Download Config'}
           </button>
           
-          <button type="button" className="btn-secondary" onClick={handleReset} disabled={isLoading}>
+          <button type="button" className="btn-secondary" onClick={handleReset} disabled={isJobRunning}>
             Reset
           </button>
         </div>

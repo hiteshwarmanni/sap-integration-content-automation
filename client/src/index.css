@@ -512,3 +512,9 @@ h1, h2, h3 {
   background-color: #f0f0f0;
   color: #555;
 }
+
+/* --- 12. Disabled Nav --- */
+.nav-disabled {
+  pointer-events: none; /* Disables all clicks on the nav */
+  opacity: 0.6; /* Visually dims the nav */
+}

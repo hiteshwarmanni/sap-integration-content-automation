@@ -6,7 +6,7 @@ import axios from 'axios';
 const API_URL = 'http://localhost:3001';
 
 // --- 👇 Upload Page (Updated with jobStatus fix) ---
-function UploadPage() {
+function UploadPage({ isJobRunning, setIsJobRunning }) {
   const initialFormState = {
     projectName: '', environment: '', userName: '',
     cpiBaseUrl: '', tokenUrl: '', clientId: '', clientSecret: ''
@@ -16,7 +16,7 @@ function UploadPage() {
   const [file, setFile] = useState(null);
   
   // We no longer need a separate jobId state
-  const [isLoading, setIsLoading] = useState(false);
+ // const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [jobStatus, setJobStatus] = useState(null); // Will hold { jobId, status, progress, total, resultFile }
   const [pollInterval, setPollInterval] = useState(null);
@@ -44,7 +44,7 @@ function UploadPage() {
         if (data.status === 'Complete' || data.status === 'Failed') {
           clearInterval(interval);
           setPollInterval(null);
-          setIsLoading(false);
+          setIsJobRunning(false);
           if(data.status === 'Failed') {
             setError('Job failed. Check logs for details.');
           }
@@ -53,7 +53,7 @@ function UploadPage() {
         setError('Error checking job status.');
         clearInterval(interval);
         setPollInterval(null);
-        setIsLoading(false);
+        setIsJobRunning(false);
       }
     }, 2000);
     setPollInterval(interval);
@@ -67,7 +67,7 @@ function UploadPage() {
       return;
     }
     
-    setIsLoading(true);
+    setIsJobRunning(true);
     setError('');
     setJobStatus(null);
     if(pollInterval) clearInterval(pollInterval);
@@ -94,7 +94,7 @@ function UploadPage() {
       } else {
         setError('An unknown error occurred. Check the server console.');
       }
-      setIsLoading(false);
+      setIsJobRunning(false);
     }
   };
 
@@ -104,7 +104,7 @@ function UploadPage() {
     setFile(null);
     setError('');
     setJobStatus(null);
-    setIsLoading(false);
+    setIsJobRunning(false);
     if(pollInterval) clearInterval(pollInterval);
     
     const fileInput = document.getElementById('file-input');
@@ -118,13 +118,13 @@ function UploadPage() {
       {/* --- Status & Progress Section --- */}
       <div className="status-container">
         {/* Progress Bar (no change) */}
-        {isLoading && jobStatus && jobStatus.status === 'Running' && (
+        {isJobRunning && jobStatus && jobStatus.status === 'Running' && (
           <div className="progress-bar-container">
             <span>{`Processing: ${jobStatus.progress} / ${jobStatus.total} rows...`}</span>
             <progress className="progress-bar" value={jobStatus.progress} max={jobStatus.total}></progress>
           </div>
         )}
-        {isLoading && !jobStatus && (
+        {isJobRunning && !jobStatus && (
           <div className="progress-bar-container">
             <span>Starting job...</span>
             <progress className="progress-bar"></progress>
@@ -151,7 +151,7 @@ function UploadPage() {
               type="text" name="projectName"
               value={formData.projectName} onChange={handleInputChange}
               placeholder="e.g., MyCPIProject" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -161,7 +161,7 @@ function UploadPage() {
               type="text" name="environment"
               value={formData.environment} onChange={handleInputChange}
               placeholder="e.g., Development" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -171,7 +171,7 @@ function UploadPage() {
               type="text" name="userName"
               value={formData.userName} onChange={handleInputChange}
               placeholder="Your name or S-User" 
-              disabled={isLoading}
+              disabled={isJobRunning}
             />
           </div>
 
@@ -181,7 +181,7 @@ function UploadPage() {
               type="text" name="cpiBaseUrl"
               value={formData.cpiBaseUrl} onChange={handleInputChange}
               placeholder="https://your-tenant.api.sap" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -191,7 +191,7 @@ function UploadPage() {
               type="text" name="tokenUrl"
               value={formData.tokenUrl} onChange={handleInputChange}
               placeholder="https://your-tenant.authentication.sap" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -201,7 +201,7 @@ function UploadPage() {
               type="text" name="clientId"
               value={formData.clientId} onChange={handleInputChange}
               placeholder="Copy from service key" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -211,7 +211,7 @@ function UploadPage() {
               type="password" name="clientSecret"
               value={formData.clientSecret} onChange={handleInputChange}
               placeholder="Copy from service key" 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
@@ -221,18 +221,18 @@ function UploadPage() {
               type="file" id="file-input" 
               accept=".csv" 
               onChange={handleFileChange} 
-              required disabled={isLoading}
+              required disabled={isJobRunning}
             />
           </div>
 
         <div style={{ marginBottom: '1.5rem' }}></div> 
 
         <div className="button-group">
-          <button type="submit" className="btn-primary" disabled={isLoading || !file}>
-            {isLoading ? 'Uploading...' : 'Upload Config'}
+          <button type="submit" className="btn-primary" disabled={isJobRunning || !file}>
+            {isJobRunning ? 'Uploading...' : 'Upload Config'}
           </button>
           
-          <button type="button" className="btn-secondary" onClick={handleReset} disabled={isLoading}>
+          <button type="button" className="btn-secondary" onClick={handleReset} disabled={isJobRunning}>
             Reset
           </button>
         </div>
