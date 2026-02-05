@@ -1,0 +1,14 @@
+{
+    "minimum_feature_version": "1",
+    "file_suffixes": {
+        "hdbtable": {
+            "plugin_name": "com.sap.hana.di.table"
+        },
+        "hdbview": {
+            "plugin_name": "com.sap.hana.di.view"
+        },
+        "hdbsequence": {
+            "plugin_name": "com.sap.hana.di.sequence"
+        }
+    }
+}

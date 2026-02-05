@@ -11,9 +11,11 @@
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
@@ -22,6 +24,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -40,3 +43,58 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Action buttons with icons */
+.action-buttons {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+}
+
+/* .icon-btn {
+  padding: 0.6rem;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  min-height: 38px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+}
+
+.icon-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.icon-btn:active {
+  transform: translateY(0);
+}
+
+.icon-btn-edit {
+  background-color: #007bff;
+  color: white;
+}
+
+.icon-btn-edit:hover {
+  background-color: #0056b3;
+}
+
+.icon-btn-delete {
+  background-color: #dc3545;
+  color: white;
+}
+
+.icon-btn-delete:hover {
+  background-color: #c82333;
+}
+
+.icon-btn svg {
+  pointer-events: none;
+  display: block;
+} */

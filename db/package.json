@@ -1,0 +1,11 @@
+{
+    "name": "sap-integration-automation-db",
+    "version": "1.0.0",
+    "description": "Database artifacts for SAP Integration Automation",
+    "dependencies": {
+        "@sap/hdi-deploy": "^4.9.3"
+    },
+    "scripts": {
+        "start": "node node_modules/@sap/hdi-deploy/deploy.js"
+    }
+}

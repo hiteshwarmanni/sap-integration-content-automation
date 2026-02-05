@@ -1,0 +1,42 @@
+
+applications:
+  - name: intops-server
+    random-route: false
+    routes:
+      - route: intops-server.cfapps.eu10-004.hana.ondemand.com
+    path: .
+    buildpacks:
+      - nodejs_buildpack
+    memory: 1G
+    disk_quota: 1G
+    instances: 1
+    command: npm start
+    health-check-type: http
+    health-check-http-endpoint: /health
+    timeout: 180
+    env:
+      NODE_ENV: production
+      BEHIND_APPROUTER: "true"
+    services:
+      - integration_automation_db
+      - intops_xsuaa
+      - cloud-logging-cloud-logging
+
+
+  - name: intops-app
+    path: approuter
+    buildpacks:
+      - nodejs_buildpack
+    memory: 256M
+    disk_quota: 512M
+    instances: 1
+    routes:
+      - route: intops-app.cfapps.eu10-004.hana.ondemand.com
+    env:
+      destinations: '[{"name":"backend","url":"https://intops-server.cfapps.eu10-004.hana.ondemand.com","forwardAuthToken":true}]'
+    services:
+      - intops_xsuaa
+      - integration_automation_db
+      - cloud-logging-cloud-logging
+    health-check-type: http
+    health-check-http-endpoint: /health

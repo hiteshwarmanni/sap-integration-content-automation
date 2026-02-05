@@ -1,26 +1,47 @@
 // client/src/pages/DownloadPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-
-// We must define this here since it's no longer in App.jsx
-const API_URL = 'http://localhost:3001';
+import { API_URL } from '../config';
 
 // --- 👇 Download Page (Updated to Job System) ---
-function DownloadPage({ isJobRunning, setIsJobRunning }) {
+function DownloadPage({ isJobRunning, setIsJobRunning, refreshLogs, projects: projectsProp }) {
   const initialFormState = {
-    projectName: '', environment: '', userName: '',
+    projectName: '', environment: '',
     cpiBaseUrl: '', tokenUrl: '', clientId: '', clientSecret: '',
     packageId: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
-  
-  // --- State for Job Management ---
+  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [jobId, setJobId] = useState(null);
-  //const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [jobStatus, setJobStatus] = useState(null); // Will hold { status, progress, total, resultFile }
+  const [jobStatus, setJobStatus] = useState(null);
   const [pollInterval, setPollInterval] = useState(null);
+
+  // Filter projects with access from props
+  const projects = projectsProp ? projectsProp.filter(p => p.hasAccess) : [];
+
+  const handleProjectSelect = (e) => {
+    const projectId = e.target.value;
+    setSelectedProjectId(projectId);
+
+    if (projectId) {
+      const project = projects.find(p => p.id === parseInt(projectId));
+      if (project) {
+        setFormData({
+          projectName: project.projectName,
+          environment: project.environment,
+          cpiBaseUrl: project.cpiBaseUrl,
+          tokenUrl: project.tokenUrl,
+          clientId: project.clientId,
+          clientSecret: project.clientSecret,
+          packageId: formData.packageId // Keep packageId as user input
+        });
+      }
+    } else {
+      setFormData(initialFormState);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -32,13 +53,19 @@ function DownloadPage({ isJobRunning, setIsJobRunning }) {
     const interval = setInterval(async () => {
       try {
         const { data } = await axios.get(`${API_URL}/api/v1/download-job-status/${id}`);
-        setJobStatus({ ...data, jobId: id }); 
+        setJobStatus({ ...data, jobId: id });
 
         if (data.status === 'Complete' || data.status === 'Failed') {
           clearInterval(interval);
           setPollInterval(null);
           setIsJobRunning(false);
-          if(data.status === 'Failed') {
+
+          // Refresh logs when job completes
+          if (refreshLogs) {
+            refreshLogs();
+          }
+
+          if (data.status === 'Failed') {
             setError('Job failed. Check logs for details.');
           }
         }
@@ -58,26 +85,23 @@ function DownloadPage({ isJobRunning, setIsJobRunning }) {
     setIsJobRunning(true);
     setError('');
     setJobStatus(null);
-    if(pollInterval) clearInterval(pollInterval);
+    if (pollInterval) clearInterval(pollInterval);
 
     try {
       // 1. Start the job
       const { data } = await axios.post(
         `${API_URL}/api/v1/start-download-job`,
-        formData // Send form data as JSON
+        { ...formData, projectId: selectedProjectId } // Send form data with projectId
       );
-      
+
       // 2. Start polling
       setJobId(data.jobId);
       pollJobStatus(data.jobId);
-      
+
     } catch (apiError) {
       console.error('Download Start Error:', apiError);
-      if (apiError.response && apiError.response.data) {
-        setError(`Error: ${apiError.response.data.error}`);
-      } else {
-        setError('An unknown error occurred. Check the server console.');
-      }
+      const errorMsg = apiError.response?.data?.error || 'An unknown error occurred. Check the server console.';
+      setError(`Error: ${errorMsg}`);
       setIsJobRunning(false);
     }
   };
@@ -89,131 +113,163 @@ function DownloadPage({ isJobRunning, setIsJobRunning }) {
     setJobId(null);
     setJobStatus(null);
     setIsJobRunning(false);
-    if(pollInterval) clearInterval(pollInterval);
+    if (pollInterval) clearInterval(pollInterval);
   };
-  
+
   return (
     <div className="page-content">
       <h2>Download Configuration</h2>
-      
+
       {/* --- Status & Progress Section --- */}
       <div className="status-container">
-        {/* Progress Bar */}
+        {/* Enhanced Progress Bar */}
         {isJobRunning && jobStatus && jobStatus.status === 'Running' && (
           <div className="progress-bar-container">
-            <span>{`Processing: ${jobStatus.progress} / ${jobStatus.total} packages...`}</span>
+            <div style={{ width: '100%', textAlign: 'center', marginBottom: '0.5rem' }}>
+              Processing Packages: {jobStatus.progress} / {jobStatus.total}
+              <span style={{ marginLeft: '1rem', color: '#666' }}>
+                ({Math.round((jobStatus.progress / jobStatus.total) * 100)}%)
+              </span>
+            </div>
             <progress className="progress-bar" value={jobStatus.progress} max={jobStatus.total}></progress>
+            {/* <div style={{ width: '100%', fontSize: '0.9rem', color: '#666', marginTop: '0.5rem', textAlign: 'center' }}>
+              Fetching integration flows and configurations...
+            </div> */}
           </div>
         )}
         {isJobRunning && !jobStatus && (
           <div className="progress-bar-container">
-            <span>Starting job...</span>
+            <span>Starting download job...</span>
             <progress className="progress-bar"></progress>
+            <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+              Initializing connection and retrieving package list...
+            </div>
           </div>
         )}
-        
+
         {/* Download Link */}
         {jobStatus && jobStatus.status === 'Complete' && (
           <div className="form-success">
-            Job complete! 
+            Job complete!
             <a href={`${API_URL}/api/v1/get-download-result/${jobStatus.jobId}`} className="download-link">Download Config CSV</a>
           </div>
         )}
         {error && <div className="form-error">{error}</div>}
       </div>
-      
-      {/* Form (no change) */}
+
+      {/* Form */}
       <form className="modern-form" onSubmit={handleSubmit}>
-          {/* ... (all form-group divs) ... */}
-          <div className="form-group">
-            <label>Project Name *</label>
-            <input 
-              type="text" name="projectName"
-              value={formData.projectName} onChange={handleInputChange}
-              placeholder="e.g., MyCPIProject" 
-              required disabled={isJobRunning}
-            />
-          </div>
+        {/* Project Selector */}
+        <div className="form-group">
+          <label>Select Project *</label>
+          <select
+            value={selectedProjectId}
+            onChange={handleProjectSelect}
+            required
+            disabled={isJobRunning}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              backgroundColor: 'white'
+            }}
+          >
+            <option value="">-- Select a Project --</option>
+            {projects.map(project => (
+              <option key={project.id} value={project.id}>
+                {project.projectName} ({project.environment})
+              </option>
+            ))}
+          </select>
+          {projects.length === 0 && (
+            <small style={{ color: '#dc3545', fontSize: '0.85rem', marginTop: '0.25rem', display: 'block' }}>
+              No projects available. Please create a project in Project Master first.
+            </small>
+          )}
+        </div>
 
-          <div className="form-group">
-            <label>Environment *</label>
-            <input 
-              type="text" name="environment"
-              value={formData.environment} onChange={handleInputChange}
-              placeholder="e.g., Development" 
-              required disabled={isJobRunning}
-            />
-          </div>
+        {/* Auto-populated fields (greyed out) */}
+        <div className="form-group">
+          <label>Project Name *</label>
+          <input
+            type="text" name="projectName"
+            value={formData.projectName}
+            placeholder="Select a project above"
+            required
+            disabled
+            style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+          />
+        </div>
 
-          <div className="form-group">
-            <label>User Name</label>
-            <input 
-              type="text" name="userName"
-              value={formData.userName} onChange={handleInputChange}
-              placeholder="Your name or S-User" 
-              disabled={isJobRunning}
-            />
-          </div>
+        <div className="form-group">
+          <label>Environment *</label>
+          <input
+            type="text" name="environment"
+            value={formData.environment}
+            placeholder="Select a project above"
+            required
+            disabled
+            style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+          />
+        </div>
 
-          {/* --- 👇 NEW INPUT FIELD ADDED HERE --- */}
-          <div className="form-group">
-            <label>Package ID (Optional)</label>
-            <input 
-              type="text" name="packageId"
-              value={formData.packageId} onChange={handleInputChange}
-              placeholder="Leave blank for all, or: id1,id2,id3" 
-              disabled={isJobRunning}
-            />
-          </div>
-          {/* --- END OF NEW FIELD --- */}
-
-          <div className="form-group">
-            <label>CPI Base URL *</label>
-            <input 
+        <div className="form-group">
+          <label>CPI Base URL *</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+            <input
               type="text" name="cpiBaseUrl"
-              value={formData.cpiBaseUrl} onChange={handleInputChange}
-              placeholder="https://your-tenant.api.sap" 
-              required disabled={isJobRunning}
+              value={formData.cpiBaseUrl}
+              placeholder="Select a project above"
+              required
+              disabled
+              style={{
+                borderTopRightRadius: '0',
+                borderBottomRightRadius: '0',
+                flexGrow: 1,
+                backgroundColor: '#f5f5f5',
+                cursor: 'not-allowed'
+              }}
             />
+            <span style={{
+              padding: '0.75rem 1rem',
+              backgroundColor: '#e0e0e0',
+              color: '#666',
+              border: '1px solid #ddd',
+              borderLeft: 'none',
+              borderTopRightRadius: '6px',
+              borderBottomRightRadius: '6px',
+              fontSize: '0.95rem',
+              whiteSpace: 'nowrap'
+            }}>
+              /api/v1
+            </span>
           </div>
+        </div>
 
-          <div className="form-group">
-            <label>Token URL *</label>
-            <input 
-              type="text" name="tokenUrl"
-              value={formData.tokenUrl} onChange={handleInputChange}
-              placeholder="https://your-tenant.authentication.sap" 
-              required disabled={isJobRunning}
-            />
-          </div>
+        {/* Package ID - User can still input */}
+        <div className="form-group">
+          <label>Package ID (Optional)</label>
+          <input
+            type="text" name="packageId"
+            value={formData.packageId}
+            onChange={handleInputChange}
+            placeholder="Leave blank for all, or: id1,id2,id3"
+            disabled={isJobRunning || !selectedProjectId}
+          />
+          <small style={{ color: '#666', fontSize: '0.85rem', marginTop: '0.25rem', display: 'block' }}>
+            Optional: Specify package IDs separated by commas
+          </small>
+        </div>
 
-          <div className="form-group">
-            <label>Client ID *</label>
-            <input 
-              type="text" name="clientId"
-              value={formData.clientId} onChange={handleInputChange}
-              placeholder="Copy from service key" 
-              required disabled={isJobRunning}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Client Secret *</label>
-            <input 
-              type="password" name="clientSecret"
-              value={formData.clientSecret} onChange={handleInputChange}
-              placeholder="Copy from service key" 
-              required disabled={isJobRunning}
-            />
-          </div>
-
-        <div style={{ marginBottom: '1.5rem' }}></div> 
+        <div style={{ marginBottom: '1.5rem' }}></div>
 
         <div className="button-group">
           <button type="submit" className="btn-primary" disabled={isJobRunning}>
             {isJobRunning ? 'Downloading...' : 'Download Config'}
           </button>
-          
+
           <button type="button" className="btn-secondary" onClick={handleReset} disabled={isJobRunning}>
             Reset
           </button>

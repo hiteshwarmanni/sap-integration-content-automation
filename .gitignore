@@ -1,19 +1,83 @@
-# Server dependencies
+# Dependencies
+node_modules/
 /server/node_modules
+/client/node_modules
+/approuter/node_modules
+/db/node_modules
 
-# Server database file
+# Build outputs
+/client/dist
+/client/dist/
+approuter/resources/
+approuter/resources
+*.tgz
+mta_archives/
+
+# Database files
+*.db
+*.db-journal
 /server/logs.db
+logs.db
 
-#Execution Logs
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 /server/logs
-
-#Results
 /server/results
 
-# Server environment secrets
-# 💥 VERY IMPORTANT: Never commit this file!
-/server/.env
+# Uploaded files
+/server/uploads/*.csv
+/server/uploads/*.xlsx
+/server/uploads/*.txt
 
-# General OS files
+# Environment files - NEVER COMMIT THESE!
+.env
+/server/.env
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+.temp/
+
+# SAP specific
+.che/
+.env.cloud
+mta-op*.log
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache

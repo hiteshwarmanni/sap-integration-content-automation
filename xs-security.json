@@ -1,0 +1,54 @@
+{
+    "xsappname": "intops",
+    "tenant-mode": "dedicated",
+    "description": "Security configuration for SAP Integration Operations",
+    "scopes": [
+        {
+            "name": "$XSAPPNAME.Admin",
+            "description": "Administrator access to the application"
+        },
+        {
+            "name": "$XSAPPNAME.User",
+            "description": "User access to the application"
+        }
+    ],
+    "role-templates": [
+        {
+            "name": "Admin",
+            "description": "Administrator role with full access",
+            "scope-references": [
+                "$XSAPPNAME.Admin",
+                "$XSAPPNAME.User"
+            ]
+        },
+        {
+            "name": "User",
+            "description": "User role with standard access",
+            "scope-references": [
+                "$XSAPPNAME.User"
+            ]
+        }
+    ],
+    "role-collections": [
+        {
+            "name": "IntOps_Admin",
+            "description": "Integration Operations Administrator",
+            "role-template-references": [
+                "$XSAPPNAME.Admin"
+            ]
+        },
+        {
+            "name": "IntOps_User",
+            "description": "Integration Operations User",
+            "role-template-references": [
+                "$XSAPPNAME.User"
+            ]
+        }
+    ],
+    "oauth2-configuration": {
+        "redirect-uris": [
+            "https://intops-server.cfapps.eu10-004.hana.ondemand.com/**",
+            "https://intops-app.cfapps.eu10-004.hana.ondemand.com/**"
+        ]
+    }
+}

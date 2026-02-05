@@ -1,0 +1,84 @@
+# Cloud Foundry Ignore File
+# Files and directories listed here will not be uploaded to Cloud Foundry
+
+# Node modules (will be installed during staging)
+client/node_modules/
+db/node_modules/
+
+# Client source files (we only need the built dist folder)
+client/src/
+client/public/
+client/index.html
+client/vite.config.js
+client/eslint.config.js
+client/package.json
+client/package-lock.json
+client/README.md
+client/.gitignore
+
+# Database files (using HANA in cloud)
+logs.db
+server/logs.db
+*.db
+*.db-journal
+
+# Local logs and results folders
+server/logs/
+server/results/
+
+# Temporary upload files
+server/uploads/
+
+# Environment files
+.env
+server/.env
+.env.local
+.env.*.local
+
+# Documentation files
+README.md
+CHANGES_SUMMARY.md
+DEPLOYMENT_GUIDE.md
+MIGRATION_COMPLETE.md
+WINDOWS_DEPLOYMENT_GUIDE.md
+LOCAL_DEBUG_GUIDE.md
+REFACTORING_SUMMARY.md
+OPTIMIZATION_RECOMMENDATIONS.md
+
+# MTA build artifacts
+mta_archives/
+.mta/
+Makefile*.mta
+
+# Git
+.git/
+.gitignore
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Test files
+*.test.js
+*.spec.js
+__tests__/
+coverage/
+
+# Example files
+.env.example
+
+# Backup files
+*.OLD.js
+*.backup
+*.bak
+server/routes.OLD.js
+server/jobs.OLD.js

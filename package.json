@@ -1,0 +1,29 @@
+{
+    "name": "intops",
+    "version": "1.0.0",
+    "description": "SAP Integration Operations Tool",
+    "main": "server/server.js",
+    "scripts": {
+        "start": "node server/server.js",
+        "build": "cd client && npm run build",
+        "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+        "server": "cd server && node server.js",
+        "client": "cd client && npm run dev",
+        "dev": "concurrently \"npm run server\" \"npm run client\""
+    },
+    "keywords": [
+        "sap",
+        "cpi",
+        "integration",
+        "automation"
+    ],
+    "author": "",
+    "license": "ISC",
+    "engines": {
+        "node": ">=18.x",
+        "npm": ">=9.x"
+    },
+    "dependencies": {
+        "concurrently": "^9.2.1"
+    }
+}

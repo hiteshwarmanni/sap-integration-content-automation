@@ -1,0 +1,34 @@
+{
+    "welcomeFile": "/index.html",
+    "authenticationMethod": "route",
+    "sessionTimeout": 30,
+    "routes": [
+        {
+            "source": "^/api/(.*)$",
+            "target": "/api/$1",
+            "destination": "backend",
+            "authenticationType": "xsuaa",
+            "csrfProtection": false
+        },
+        {
+            "source": "^/logout$",
+            "target": "/logout",
+            "destination": "backend",
+            "authenticationType": "xsuaa"
+        },
+        {
+            "source": "^/assets/(.*)$",
+            "target": "/assets/$1",
+            "localDir": "resources",
+            "authenticationType": "xsuaa",
+            "csrfProtection": false
+        },
+        {
+            "source": "^/.*$",
+            "target": "/index.html",
+            "localDir": "resources",
+            "authenticationType": "xsuaa",
+            "csrfProtection": false
+        }
+    ]
+}

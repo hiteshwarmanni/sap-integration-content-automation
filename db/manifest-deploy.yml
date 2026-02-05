@@ -1,0 +1,12 @@
+---
+applications:
+  - name: db-deployer-temp
+    path: .
+    memory: 512M
+    disk_quota: 512M
+    health-check-type: process
+    no-route: true
+    env:
+      TARGET_CONTAINER: integration_automation_db
+    services:
+      - integration_automation_db

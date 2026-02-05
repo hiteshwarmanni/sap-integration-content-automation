@@ -1,0 +1,111 @@
+_schema-version: '3.1'
+ID: intops
+version: 1.0.0
+description: SAP Integration Operations Tool
+
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm install
+        - cd client && npm install && npm run build && cd ..
+        - cd server && npm install && cd ..
+        - cd approuter && npm install && cd ..
+        - if not exist "approuter\\resources" mkdir "approuter\\resources"
+        - xcopy /E /I /Y "client\\dist\\*" "approuter\\resources\\"
+
+modules:
+  # AppRouter Module (for authentication)
+  - name: intops-approuter
+    type: approuter.nodejs
+    path: approuter
+    parameters:
+      memory: 256M
+      disk-quota: 256M
+    requires:
+      - name: intops_xsuaa
+      - name: app-api
+        group: destinations
+        properties:
+          name: backend
+          url: ~{url}
+          forwardAuthToken: true
+          strictSSL: false
+    build-parameters:
+      builder: npm
+
+  # Application Module
+  - name: intops-server
+    type: nodejs
+    path: .
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 1024M
+      disk-quota: 1024M
+    build-parameters:
+      builder: npm
+    provides:
+      - name: app-api
+        properties:
+          url: '${default-url}'
+    requires:
+      - name: integration_automation_db
+      - name: intops_xsuaa
+
+  # Database Module (HDI Container)
+  - name: intops-db
+    type: hdb
+    path: db
+    parameters:
+      memory: 256M
+    requires:
+      - name: integration_automation_db
+
+resources:
+  # HANA HDI Container
+  - name: integration_automation_db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+    properties:
+      hdi-container-name: '${service-name}'
+
+  # XSUAA Service
+  - name: intops_xsuaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        xsappname: intops-${space}
+        tenant-mode: dedicated
+        scopes:
+          - name: '$XSAPPNAME.Admin'
+            description: Admin access
+          - name: '$XSAPPNAME.User'
+            description: User access
+        role-templates:
+          - name: Admin
+            description: Administrator
+            scope-references:
+              - '$XSAPPNAME.Admin'
+              - '$XSAPPNAME.User'
+          - name: User
+            description: Regular User
+            scope-references:
+              - '$XSAPPNAME.User'
+        role-collections:
+          - name: IntOps_Admin
+            description: Integration Operations Administrator
+            role-template-references:
+              - '$XSAPPNAME.Admin'
+          - name: IntOps_User
+            description: Integration Operations User
+            role-template-references:
+              - '$XSAPPNAME.User'

@@ -51,6 +51,7 @@ function escapeCSV(cell) {
 // --- 👇 NEW: API Constants ---
 const API_PORT = 3001;
 const API_URL = `http://localhost:${API_PORT}`;
+const CPI_API_PATH_SUFFIX = '/api/v1'; // Automatically appended to CPI Base URL
 // --- End of new constants ---
 
 // --- 6. Export everything ---
@@ -68,4 +69,5 @@ module.exports = {
   csv: require('csv-parser'),
   API_PORT, // <-- Export
   API_URL,  // <-- Export
+  CPI_API_PATH_SUFFIX, // <-- Export CPI API path suffix
 };
