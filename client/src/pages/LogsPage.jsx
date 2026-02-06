@@ -127,7 +127,7 @@ const LogsPage = React.memo(({ logs, error, refreshLogs }) => {
 
   // Default columns configuration
   const defaultColumns = {
-    id: true,
+    id: false, // Database Id column unselected by default
     projectName: true,
     environment: true,
     userName: true,
@@ -162,7 +162,7 @@ const LogsPage = React.memo(({ logs, error, refreshLogs }) => {
 
   // Column configuration
   const columnConfig = [
-    { key: 'id', label: 'Id' },
+    { key: 'id', label: 'Database Id' },
     { key: 'projectName', label: 'Project' },
     { key: 'environment', label: 'Environment' },
     { key: 'userName', label: 'User' },
@@ -411,7 +411,7 @@ const LogsPage = React.memo(({ logs, error, refreshLogs }) => {
         <table className="logs-table">
           <thead>
             <tr>
-              {visibleColumns.id && <th>Id</th>}
+              {visibleColumns.id && <th>Database Id</th>}
               {visibleColumns.projectName && <th>Project</th>}
               {visibleColumns.environment && <th>Environment</th>}
               {visibleColumns.userName && <th>User</th>}
