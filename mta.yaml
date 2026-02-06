@@ -53,7 +53,7 @@ modules:
         properties:
           url: '${default-url}'
     requires:
-      - name: integration_automation_db
+      - name: intops_db
       - name: intops_xsuaa
 
   # Database Module (HDI Container)
@@ -63,11 +63,11 @@ modules:
     parameters:
       memory: 256M
     requires:
-      - name: integration_automation_db
+      - name: intops_db
+      - name: intops_xsuaa
 
-resources:
   # HANA HDI Container
-  - name: integration_automation_db
+  - name: intops_db
     type: com.sap.xs.hdi-container
     parameters:
       service: hana

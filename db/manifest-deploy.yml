@@ -7,6 +7,6 @@ applications:
     health-check-type: process
     no-route: true
     env:
-      TARGET_CONTAINER: integration_automation_db
+      TARGET_CONTAINER: intops_db
     services:
-      - integration_automation_db
+      - intops_db

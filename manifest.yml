@@ -18,7 +18,7 @@ applications:
       NODE_ENV: production
       BEHIND_APPROUTER: "true"
     services:
-      - integration_automation_db
+      - intops_db
       - intops_xsuaa
       - cloud-logging-cloud-logging
 
@@ -36,7 +36,7 @@ applications:
       destinations: '[{"name":"backend","url":"https://intops-server.cfapps.eu10-004.hana.ondemand.com","forwardAuthToken":true}]'
     services:
       - intops_xsuaa
-      - integration_automation_db
+      - intops_db
       - cloud-logging-cloud-logging
     health-check-type: http
     health-check-http-endpoint: /health
