@@ -1,9 +1,9 @@
 // server/routes/projects.routes.js
 const express = require('express');
 const router = express.Router();
-const { authenticate, getUserInfo } = require('../auth-middleware');
+const { authenticate, getUserInfo, checkScope } = require('../auth-middleware');
 const db = require('../db-wrapper');
-const { logInfo, logError, logApiRequest } = require('../cloud-logger');
+const { logInfo, logError, logWarning, logApiRequest } = require('../cloud-logger');
 
 // Debug endpoint to test database connection
 router.get('/test-db', authenticate, async (req, res) => {
@@ -27,14 +27,21 @@ router.get('/test-db', authenticate, async (req, res) => {
     }
 });
 
-// Get all projects (member-based access only)
+// Get all projects - Access logic:
+// - Admin (with Delete scope): Can access ALL projects
+// - User (without Delete scope): Can only access projects they are a member of
 router.get('/', authenticate, async (req, res) => {
     try {
         const userInfo = getUserInfo(req);
         const userId = userInfo.email || userInfo.id;
         const allProjects = await db.getAllProjects();
 
-        // Filter projects based on membership only (no admin override)
+        // Check if user has Delete scope (Admin)
+        const hasDeleteScope = req.authInfo &&
+            typeof req.authInfo.checkLocalScope === 'function' &&
+            req.authInfo.checkLocalScope('Delete');
+
+        // Map projects with access info
         const accessibleProjects = allProjects.map(project => {
             let members = [];
             try {
@@ -43,7 +50,11 @@ router.get('/', authenticate, async (req, res) => {
                 members = [];
             }
 
-            const hasAccess = members.includes(userId);
+            const isMember = members.includes(userId);
+
+            // Admin with Delete scope gets access to ALL projects
+            // Regular users only get access to projects they're members of
+            const hasAccess = hasDeleteScope || isMember;
 
             return {
                 ...project,
@@ -54,7 +65,12 @@ router.get('/', authenticate, async (req, res) => {
             };
         });
 
-        logInfo('Projects fetched', { userId, accessibleCount: accessibleProjects.filter(p => p.hasAccess).length, totalCount: allProjects.length });
+        logInfo('Projects fetched', {
+            userId,
+            hasDeleteScope,
+            accessibleCount: accessibleProjects.filter(p => p.hasAccess).length,
+            totalCount: allProjects.length
+        });
         logApiRequest(req, 'success', { count: accessibleProjects.length, userId });
         res.json(accessibleProjects);
     } catch (error) {
@@ -64,7 +80,9 @@ router.get('/', authenticate, async (req, res) => {
     }
 });
 
-// Get single project by ID (member-based access only)
+// Get single project by ID - Access logic:
+// - Admin (with Delete scope): Can access ANY project
+// - User (without Delete scope): Can only access projects they are a member of
 router.get('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
@@ -77,7 +95,12 @@ router.get('/:id', authenticate, async (req, res) => {
             return res.status(404).json({ error: 'Project not found.' });
         }
 
-        // Check membership only
+        // Check if user has Delete scope (Admin)
+        const hasDeleteScope = req.authInfo &&
+            typeof req.authInfo.checkLocalScope === 'function' &&
+            req.authInfo.checkLocalScope('Delete');
+
+        // Parse project members
         let members = [];
         try {
             members = project.projectMembers ? JSON.parse(project.projectMembers) : [];
@@ -85,14 +108,18 @@ router.get('/:id', authenticate, async (req, res) => {
             members = [];
         }
 
-        const hasAccess = members.includes(userId);
+        const isMember = members.includes(userId);
+
+        // Admin with Delete scope gets access to ALL projects
+        // Regular users only get access to projects they're members of
+        const hasAccess = hasDeleteScope || isMember;
 
         if (!hasAccess) {
             logApiRequest(req, 'error', { projectId: id, userId, reason: 'Access denied - not a member' });
             return res.status(403).json({ error: 'Access denied to this project.' });
         }
 
-        logApiRequest(req, 'success', { projectId: id, userId });
+        logApiRequest(req, 'success', { projectId: id, userId, hasDeleteScope, isMember });
         res.json(project);
     } catch (error) {
         logError(`Error fetching project ${req.params.id}`, error);
@@ -101,7 +128,7 @@ router.get('/:id', authenticate, async (req, res) => {
     }
 });
 
-// Create new project
+// Create new project - requires Write scope (Admin and User can create)
 router.post('/', authenticate, async (req, res) => {
     try {
         const userInfo = getUserInfo(req);
@@ -183,7 +210,9 @@ router.post('/', authenticate, async (req, res) => {
     }
 });
 
-// Update project (only project members)
+// Update project - Authorization logic:
+// - Admin (with Delete scope): Can update ANY project
+// - User (without Delete scope): Can only update projects they are a member of
 router.put('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
@@ -191,20 +220,18 @@ router.put('/:id', authenticate, async (req, res) => {
         const userId = userInfo.email || userInfo.id;
         const userName = userInfo.name || userId;
 
-        logInfo('Project update initiated', {
-            projectId: id,
-            userId,
-            userName
-        });
-
         const project = await db.getProjectById(id);
         if (!project) {
-            logInfo('Project update failed - not found', { projectId: id, userId });
             logApiRequest(req, 'error', { projectId: id, reason: 'Project not found' });
             return res.status(404).json({ error: 'Project not found.' });
         }
 
-        // Check membership only
+        // Check if user has Delete scope (Admin)
+        const hasDeleteScope = req.authInfo &&
+            typeof req.authInfo.checkLocalScope === 'function' &&
+            req.authInfo.checkLocalScope('Delete');
+
+        // Parse project members
         let members = [];
         try {
             members = project.projectMembers ? JSON.parse(project.projectMembers) : [];
@@ -212,16 +239,24 @@ router.put('/:id', authenticate, async (req, res) => {
             members = [];
         }
 
-        const hasAccess = members.includes(userId);
+        const isMember = members.includes(userId);
+
+        // Admin with Delete scope gets access to ALL projects
+        // Regular users only get access to projects they're members of
+        const hasAccess = hasDeleteScope || isMember;
+
         if (!hasAccess) {
-            logInfo('Project update denied - access check failed', {
+            logWarning('Project update denied - insufficient permissions', {
                 projectId: id,
                 userId,
                 projectName: project.projectName,
-                currentMembers: members
+                hasDeleteScope,
+                isMember
             });
-            logApiRequest(req, 'error', { projectId: id, userId, reason: 'Access denied - not a member' });
-            return res.status(403).json({ error: 'Only project members can update this project.' });
+            logApiRequest(req, 'error', { projectId: id, userId, reason: 'Access denied - not a member and no admin rights' });
+            return res.status(403).json({
+                error: 'Access denied. You must be a project member or have admin rights to update this project.'
+            });
         }
 
         const { projectName, environment, cpiBaseUrl, tokenUrl, clientId, clientSecret, projectMembers } = req.body;
@@ -272,28 +307,32 @@ router.put('/:id', authenticate, async (req, res) => {
     }
 });
 
-// Delete project (only project members)
+// Delete project - Authorization logic:
+// - Admin (with Delete scope): Can delete ANY project (member or not)
+// - User (without Delete scope): Can only delete projects they are a member of
 router.delete('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const userInfo = getUserInfo(req);
         const userId = userInfo.email || userInfo.id;
         const userName = userInfo.name || userId;
-
         logInfo('Project deletion initiated', {
             projectId: id,
             userId,
             userName
         });
-
         const project = await db.getProjectById(id);
         if (!project) {
-            logInfo('Project deletion failed - not found', { projectId: id, userId });
             logApiRequest(req, 'error', { projectId: id, reason: 'Project not found' });
             return res.status(404).json({ error: 'Project not found.' });
         }
 
-        // Check membership only
+        // Check if user has Delete scope (Admin)
+        const hasDeleteScope = req.authInfo &&
+            typeof req.authInfo.checkLocalScope === 'function' &&
+            req.authInfo.checkLocalScope('Delete');
+
+        // Parse project members
         let members = [];
         try {
             members = project.projectMembers ? JSON.parse(project.projectMembers) : [];
@@ -301,39 +340,35 @@ router.delete('/:id', authenticate, async (req, res) => {
             members = [];
         }
 
-        const hasAccess = members.includes(userId);
-        if (!hasAccess) {
-            logInfo('Project deletion denied - access check failed', {
+        const isMember = members.includes(userId);
+
+        // Authorization logic:
+        // Admin with Delete scope: Can delete any project
+        // User without Delete scope: Can only delete if they are a member
+        if (!hasDeleteScope && !isMember) {
+            logWarning('Project deletion denied - insufficient permissions', {
                 projectId: id,
                 userId,
                 projectName: project.projectName,
-                environment: project.environment,
-                currentMembers: members
+                hasDeleteScope,
+                isMember
             });
-            logApiRequest(req, 'error', { projectId: id, userId, reason: 'Access denied - not a member' });
-            return res.status(403).json({ error: 'Only project members can delete this project.' });
+            logApiRequest(req, 'error', { projectId: id, userId, reason: 'Access denied - not a member and no admin rights' });
+            return res.status(403).json({
+                error: 'Access denied. You must be a project member or have admin rights to delete this project.'
+            });
         }
 
-        // Log project details before deletion
-        logInfo('Project deletion confirmed - deleting now', {
-            projectId: id,
-            projectName: project.projectName,
-            environment: project.environment,
-            createdBy: project.createdBy,
-            memberCount: members.length,
-            deletedBy: userName,
-            userId
-        });
-
+        // Delete the project
         await db.deleteProject(id);
 
-        logInfo('Project deleted successfully', {
+        logInfo('Project deleted', {
             projectId: id,
             projectName: project.projectName,
-            environment: project.environment,
             deletedBy: userName,
             userId,
-            timestamp: new Date().toISOString()
+            hasDeleteScope,
+            isMember
         });
         logApiRequest(req, 'success', { projectId: id });
         res.json({ message: 'Project deleted successfully' });

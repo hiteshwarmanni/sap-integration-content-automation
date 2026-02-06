@@ -2,30 +2,58 @@
     "xsappname": "intops",
     "tenant-mode": "dedicated",
     "description": "Security configuration for SAP Integration Operations",
+    "attributes": [
+        {
+            "name": "appAccess",
+            "description": "Attribute to control app access",
+            "valueType": "string"
+        }
+    ],
     "scopes": [
         {
-            "name": "$XSAPPNAME.Admin",
-            "description": "Administrator access to the application"
+            "name": "$XSAPPNAME.AppAccess",
+            "description": "Basic access to login to the application",
+            "grant-as-authority-to-apps": [
+                "$XSAPPNAME(application,intops-approuter)"
+            ]
         },
         {
-            "name": "$XSAPPNAME.User",
-            "description": "User access to the application"
+            "name": "$XSAPPNAME.Read",
+            "description": "Read access to view logs, projects, and configurations"
+        },
+        {
+            "name": "$XSAPPNAME.Write",
+            "description": "Write access to create and update projects and configurations"
+        },
+        {
+            "name": "$XSAPPNAME.Delete",
+            "description": "Delete access to remove projects (Admin only)"
+        },
+        {
+            "name": "$XSAPPNAME.Execute",
+            "description": "Execute access to run download, upload, and deploy jobs"
         }
     ],
     "role-templates": [
         {
             "name": "Admin",
-            "description": "Administrator role with full access",
+            "description": "Administrator role with full access including delete",
             "scope-references": [
-                "$XSAPPNAME.Admin",
-                "$XSAPPNAME.User"
+                "$XSAPPNAME.AppAccess",
+                "$XSAPPNAME.Read",
+                "$XSAPPNAME.Write",
+                "$XSAPPNAME.Delete",
+                "$XSAPPNAME.Execute"
             ]
         },
         {
             "name": "User",
-            "description": "User role with standard access",
+            "description": "User role with read, write, and execute access (no delete)",
             "scope-references": [
-                "$XSAPPNAME.User"
+                "$XSAPPNAME.AppAccess",
+                "$XSAPPNAME.Read",
+                "$XSAPPNAME.Write",
+                "$XSAPPNAME.Execute"
             ]
         }
     ],

@@ -8,6 +8,7 @@
             "target": "/api/$1",
             "destination": "backend",
             "authenticationType": "xsuaa",
+            "scope": "$XSAPPNAME.AppAccess",
             "csrfProtection": false
         },
         {
@@ -21,6 +22,7 @@
             "target": "/assets/$1",
             "localDir": "resources",
             "authenticationType": "xsuaa",
+            "scope": "$XSAPPNAME.AppAccess",
             "csrfProtection": false
         },
         {
@@ -28,6 +30,7 @@
             "target": "/index.html",
             "localDir": "resources",
             "authenticationType": "xsuaa",
+            "scope": "$XSAPPNAME.AppAccess",
             "csrfProtection": false
         }
     ]

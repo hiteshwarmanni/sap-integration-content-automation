@@ -1,12 +1,12 @@
 // server/routes/download.routes.js
 const express = require('express');
 const router = express.Router();
-const { authenticate, getUserInfo } = require('../auth-middleware');
+const { authenticate, getUserInfo, checkScope } = require('../auth-middleware');
 const db = require('../db-wrapper');
 const { runDownloadJob } = require('../jobs');
 const { logInfo, logError, logApiRequest } = require('../cloud-logger');
 
-// Start download job
+// Start download job - requires Execute scope
 router.post('/start-download-job', authenticate, async (req, res) => {
     try {
         const userInfo = getUserInfo(req);
