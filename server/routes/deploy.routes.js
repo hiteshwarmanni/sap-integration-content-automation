@@ -16,7 +16,7 @@ router.post('/run-deploy', authenticate, upload.single('file'), async (req, res)
 
     try {
         const userInfo = getUserInfo(req);
-        const userName = userInfo.name || userInfo.email || userInfo.id || 'Unknown User';
+        const userName = userInfo.email || userInfo.id || 'Unknown User';
         const operation = req.body.operation || 'deploy'; // 'deploy' or 'undeploy'
 
         // Validate that credentials are provided
@@ -35,16 +35,6 @@ router.post('/run-deploy', authenticate, upload.single('file'), async (req, res)
             temp_upload_path: req.file.path,
             form_data_json: JSON.stringify(jobData)
         });
-
-        logInfo('Deploy job created', {
-            jobId,
-            userName,
-            operation,
-            projectName: req.body.projectName,
-            environment: req.body.environment,
-            fileName: req.file.originalname
-        });
-        logApiRequest(req, 'success', { jobId, userName, operation, fileName: req.file.originalname });
 
         res.status(202).json({ jobId: jobId });
         runDeployJob(jobId);
@@ -91,14 +81,12 @@ router.get('/get-deploy-result/:jobId', authenticate, async (req, res) => {
         }
 
         if (!job.log_id) {
-            logApiRequest(req, 'error', { jobId, reason: 'Log ID not found for job' });
             return res.status(404).json({ error: 'Result file not found.' });
         }
 
         const log = await db.getLogById(job.log_id);
 
         if (!log || !log.resultContent) {
-            logApiRequest(req, 'error', { jobId, reason: 'Result content not found in database' });
             return res.status(404).json({ error: 'Result file not found.' });
         }
 
@@ -106,7 +94,6 @@ router.get('/get-deploy-result/:jobId', authenticate, async (req, res) => {
         const operation = formData.operation || 'deploy';
         const filename = `${log.projectName}_${log.environment}_${operation}_Results_${log.timestamp.replace(/[: ]/g, '-')}.csv`;
 
-        logApiRequest(req, 'success', { jobId, filename });
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(log.resultContent);

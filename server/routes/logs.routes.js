@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../auth-middleware');
+const { checkLogFileAccess } = require('../middleware/project-access');
 const db = require('../db-wrapper');
 const { getFormattedTimestamp } = require('../utils');
 const { logInfo, logError, logApiRequest } = require('../cloud-logger');
@@ -22,7 +23,6 @@ router.post('/log', authenticate, async (req, res) => {
             status: status || 'Unknown'
         });
 
-        logInfo('Log entry created in database', { projectName, activityType, status });
         res.status(201).json({ message: 'Log created' });
     } catch (error) {
         logError('Failed to create log entry in database', error);
@@ -35,7 +35,6 @@ router.post('/log', authenticate, async (req, res) => {
 router.get('/logs', authenticate, async (req, res) => {
     try {
         const logs = await db.getAllLogs();
-        logApiRequest(req, 'success', { count: logs.length });
         res.json(logs);
     } catch (error) {
         logError('Error fetching logs from database', error);
@@ -44,20 +43,18 @@ router.get('/logs', authenticate, async (req, res) => {
     }
 });
 
-// Download specific log file
-router.get('/download/log/:logId', authenticate, async (req, res) => {
+// Download specific log file (Admin or Project Member only)
+router.get('/download/log/:logId', authenticate, checkLogFileAccess(), async (req, res) => {
     try {
         const { logId } = req.params;
         const log = await db.getLogById(logId);
 
         if (!log || !log.logContent) {
-            logApiRequest(req, 'error', { logId, reason: 'Log content not found' });
             return res.status(404).json({ error: 'Log content not found.' });
         }
 
         const filename = `${log.projectName}_${log.activityType}_${log.timestamp.replace(/[: ]/g, '-')}.log`;
 
-        logApiRequest(req, 'success', { logId, filename });
         res.setHeader('Content-Type', 'text/plain');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(log.logContent);
@@ -68,26 +65,53 @@ router.get('/download/log/:logId', authenticate, async (req, res) => {
     }
 });
 
-// Download specific result file
-router.get('/download/result/:logId', authenticate, async (req, res) => {
+// Download specific result file (Admin or Project Member only)
+router.get('/download/result/:logId', authenticate, checkLogFileAccess(), async (req, res) => {
     try {
         const { logId } = req.params;
         const log = await db.getLogById(logId);
 
         if (!log || !log.resultContent) {
-            logApiRequest(req, 'error', { logId, reason: 'Result content not found' });
             return res.status(404).json({ error: 'Result content not found.' });
         }
 
         const filename = `${log.projectName}_${log.activityType}_results_${log.timestamp.replace(/[: ]/g, '-')}.csv`;
 
-        logApiRequest(req, 'success', { logId, filename });
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(log.resultContent);
     } catch (error) {
         logError(`Error downloading result file for ID ${req.params.logId}`, error);
         logApiRequest(req, 'error', { logId: req.params.logId, error: error.message });
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Check if user has access to download files for a specific log
+router.get('/check-access/:logId', authenticate, async (req, res) => {
+    try {
+        const { logId } = req.params;
+        const { isAdmin, isProjectMember } = require('../middleware/project-access');
+
+        const userId = req.user?.email || req.user?.id;
+
+        // Check if Admin
+        if (isAdmin(req)) {
+            return res.json({ hasAccess: true, isAdmin: true });
+        }
+
+        // Get log entry
+        const log = await db.getLogById(logId);
+        if (!log) {
+            return res.status(404).json({ error: 'Log not found' });
+        }
+
+        // Check if project member
+        const isMember = await isProjectMember(userId, log.projectName, log.environment);
+
+        res.json({ hasAccess: isMember, isAdmin: false, isMember });
+    } catch (error) {
+        logError('Error checking log access', error);
         res.status(500).json({ error: error.message });
     }
 });

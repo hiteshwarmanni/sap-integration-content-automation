@@ -1,18 +1,22 @@
 // server/jobs/shared/logger-helper.js
 
 const { path, fs, winston, loggerFormat, getFormattedTimestamp, logsDir, resultsDir } = require('../../utils.js');
+const { withContext, generateCorrelationId } = require('../../cloud-logger');
 
 /**
- * Creates a Winston logger instance for job execution
+ * Creates a Winston logger instance for job execution with correlation ID
  * @param {Date} executionTimestamp - Timestamp of job execution
  * @param {string} jobType - Type of job (download, upload, deploy, undeploy)
- * @returns {Object} Object containing logger and logFilePath
+ * @param {number} jobId - Job ID for context
+ * @returns {Object} Object containing logger, logFilePath, correlationId, and cloudLogger
  */
-function createJobLogger(executionTimestamp, jobType) {
+function createJobLogger(executionTimestamp, jobType, jobId = null) {
     const formattedTimestamp = getFormattedTimestamp(executionTimestamp);
     const logFileName = `run_${jobType}_${formattedTimestamp}.log`;
     const logFilePath = path.join(logsDir, logFileName);
+    const correlationId = generateCorrelationId();
 
+    // Create Winston logger for file logging
     const logger = winston.createLogger({
         level: 'info',
         format: loggerFormat,
@@ -22,7 +26,15 @@ function createJobLogger(executionTimestamp, jobType) {
         ]
     });
 
-    return { logger, logFilePath, formattedTimestamp };
+    // Create cloud logger with context
+    const cloudLogger = withContext({
+        correlationId,
+        jobType,
+        jobId,
+        timestamp: formattedTimestamp
+    });
+
+    return { logger, logFilePath, formattedTimestamp, correlationId, cloudLogger };
 }
 
 /**

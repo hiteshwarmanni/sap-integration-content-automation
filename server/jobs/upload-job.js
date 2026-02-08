@@ -111,7 +111,7 @@ async function runUploadJob(jobId) {
                     }
                 });
 
-                logger.info(`Updated: ${row.IflowName || IflowID} -> ${ParameterKey}`);
+                // Log only to results file, not to console
                 const outputRow = [
                     escapeCSV(row.PackageName), escapeCSV(row.PackageID), escapeCSV(row.IflowName), escapeCSV(row.IflowID),
                     escapeCSV(row.ParameterKey), escapeCSV(row.ParameterValue), escapeCSV(row.DataType),
@@ -136,6 +136,12 @@ async function runUploadJob(jobId) {
             }
 
             progress++;
+
+            // Log progress every 50 rows only
+            if (progress % 50 === 0 || progress === rows.length) {
+                logger.info(`Progress: ${progress}/${rows.length} rows (${successfulArtifacts.size} artifacts updated)`);
+            }
+
             await updateProgress(jobId, 'upload', progress, rows.length);
         }
 

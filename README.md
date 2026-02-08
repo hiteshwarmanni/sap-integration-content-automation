@@ -15,6 +15,10 @@
 
 # cf target -o IT_CF_INDIA_processautomation-oswptav8 -s dev
 
+# After deploying, update XSUAA service instance
+# cf update-service intops_xsuaa -c xs-security.json
+
+
 # ******************** Deploy to cloud **************************
 
 

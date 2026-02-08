@@ -10,7 +10,7 @@ const { logInfo, logError, logApiRequest } = require('../cloud-logger');
 router.post('/start-download-job', authenticate, async (req, res) => {
     try {
         const userInfo = getUserInfo(req);
-        const userName = userInfo.name || userInfo.email || userInfo.id || 'Unknown User';
+        const userName = userInfo.email || userInfo.id || 'Unknown User';
 
         // Validate that credentials are provided
         if (!req.body.tokenUrl || !req.body.clientId || !req.body.clientSecret) {
@@ -27,14 +27,6 @@ router.post('/start-download-job', authenticate, async (req, res) => {
             total: 0,
             form_data_json: JSON.stringify(jobData)
         });
-
-        logInfo('Download job created', {
-            jobId,
-            userName,
-            projectName: req.body.projectName,
-            environment: req.body.environment
-        });
-        logApiRequest(req, 'success', { jobId, userName });
 
         res.status(202).json({ jobId: jobId });
         runDownloadJob(jobId);
@@ -81,20 +73,17 @@ router.get('/get-download-result/:jobId', authenticate, async (req, res) => {
         }
 
         if (!job.log_id) {
-            logApiRequest(req, 'error', { jobId, reason: 'Log ID not found for job' });
             return res.status(404).json({ error: 'Result file not found.' });
         }
 
         const log = await db.getLogById(job.log_id);
 
         if (!log || !log.resultContent) {
-            logApiRequest(req, 'error', { jobId, reason: 'Result content not found in database' });
             return res.status(404).json({ error: 'Result file not found.' });
         }
 
         const filename = `${log.projectName}_${log.environment}_configurations_${log.timestamp.replace(/[: ]/g, '-')}.csv`;
 
-        logApiRequest(req, 'success', { jobId, filename });
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(log.resultContent);

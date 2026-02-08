@@ -101,13 +101,10 @@ async function runDeployJob(jobId) {
                     // Handle deployment based on artifact type
                     if (normalizedArtifactType === ARTIFACT_TYPES.INTEGRATION_FLOW) {
                         deployUrl = `${cpiBaseUrl}/DeployIntegrationDesigntimeArtifact?Id='${artifactId}'&Version='${version}'`;
-                        logger.info(`Deploying Integration Flow: ${artifactId} (Version: ${version})`);
                     } else if (normalizedArtifactType === ARTIFACT_TYPES.SCRIPT_COLLECTION) {
                         deployUrl = `${cpiBaseUrl}/DeployScriptCollectionDesigntimeArtifact?Id='${artifactId}'&Version='${version}'`;
-                        logger.info(`Deploying Script Collection: ${artifactId} (Version: ${version})`);
                     } else if (normalizedArtifactType === ARTIFACT_TYPES.VALUE_MAPPING) {
                         deployUrl = `${cpiBaseUrl}/DeployValueMappingDesigntimeArtifact?Id='${artifactId}'&Version='${version}'`;
-                        logger.info(`Deploying Value Mapping: ${artifactId} (Version: ${version})`);
                     } else {
                         throw new Error(`Unknown artifact type: ${artifactType}`);
                     }
@@ -117,7 +114,6 @@ async function runDeployJob(jobId) {
                         deployUrl = `${cpiBaseUrl}/IntegrationRuntimeArtifacts('${artifactId}')`;
                         httpMethod = 'DELETE';
                         requiresCSRF = false;
-                        logger.info(`Undeploying Integration Flow: ${artifactId}`);
                     } else {
                         throw new Error(`Undeploy not supported for artifact type: ${artifactType}`);
                     }
@@ -140,8 +136,7 @@ async function runDeployJob(jobId) {
                     response = await axios.post(deployUrl, {}, { headers });
                 }
 
-                logger.info(`Success: ${artifactId} - Status: ${response.status}`);
-
+                // Log only to results file, not to console
                 outputRow = [
                     escapeCSV(artifactId),
                     escapeCSV(version),
@@ -168,6 +163,12 @@ async function runDeployJob(jobId) {
             }
 
             progress++;
+
+            // Log progress every 10 artifacts only
+            if (progress % 10 === 0 || progress === rows.length) {
+                logger.info(`Progress: ${progress}/${rows.length} artifacts (${artifactSuccessCount} successful)`);
+            }
+
             await updateProgress(jobId, 'deploy', progress, rows.length);
         }
 

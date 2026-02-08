@@ -7,6 +7,8 @@ const { initializeHanaConnection } = require('./db-hana.js');
 const { initializeAuthentication } = require('./auth-middleware.js');
 const { defineRoutes } = require('./routes/index.js');
 const { initCloudLogging, logInfo, logError, logCritical } = require('./cloud-logger.js');
+const { requestLogger } = require('./middleware/request-logger.js');
+const { errorLogger } = require('./middleware/error-logger.js');
 
 const app = express();
 
@@ -20,6 +22,9 @@ initCloudLogging();
 // --- 1. Setup Middleware ---
 app.use(cors());
 app.use(express.json());
+
+// Request logging middleware (track all API requests)
+app.use(requestLogger);
 
 // --- 2. Initialize Authentication ---
 if (!isLocal) {
@@ -36,6 +41,9 @@ app.get('/health', (req, res) => {
 
 // --- 4. Define All Routes ---
 defineRoutes(app);
+
+// Error logging middleware (must be after routes)
+app.use(errorLogger);
 
 // --- 5. Handle 404 for backend - Do not serve frontend ---
 if (!isLocal) {

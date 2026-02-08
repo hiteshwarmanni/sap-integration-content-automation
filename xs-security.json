@@ -18,6 +18,10 @@
             ]
         },
         {
+            "name": "$XSAPPNAME.Admin",
+            "description": "Administrator scope - full access to all projects and resources"
+        },
+        {
             "name": "$XSAPPNAME.Read",
             "description": "Read access to view logs, projects, and configurations"
         },
@@ -27,7 +31,7 @@
         },
         {
             "name": "$XSAPPNAME.Delete",
-            "description": "Delete access to remove projects (Admin only)"
+            "description": "Delete access to remove projects"
         },
         {
             "name": "$XSAPPNAME.Execute",
@@ -40,6 +44,7 @@
             "description": "Administrator role with full access including delete",
             "scope-references": [
                 "$XSAPPNAME.AppAccess",
+                "$XSAPPNAME.Admin",
                 "$XSAPPNAME.Read",
                 "$XSAPPNAME.Write",
                 "$XSAPPNAME.Delete",

@@ -16,7 +16,7 @@ router.post('/run-upload', authenticate, upload.single('file'), async (req, res)
 
     try {
         const userInfo = getUserInfo(req);
-        const userName = userInfo.name || userInfo.email || userInfo.id || 'Unknown User';
+        const userName = userInfo.email || userInfo.id || 'Unknown User';
 
         // Validate that credentials are provided
         if (!req.body.tokenUrl || !req.body.clientId || !req.body.clientSecret) {

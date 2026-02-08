@@ -66,7 +66,6 @@ module.exports = {
   fs,
   winston,
   axios: require('axios'),
-  csv: require('csv-parser'),
   API_PORT, // <-- Export
   API_URL,  // <-- Export
   CPI_API_PATH_SUFFIX, // <-- Export CPI API path suffix

@@ -35,7 +35,7 @@ function formatTime(seconds) {
 }
 
 // Memoized Log Row Component for better performance
-const LogRow = React.memo(({ log, visibleColumns }) => {
+const LogRow = React.memo(({ log, visibleColumns, hasAccess }) => {
   return (
     <tr>
       {visibleColumns.id && <td>{log.id}</td>}
@@ -74,17 +74,36 @@ const LogRow = React.memo(({ log, visibleColumns }) => {
       {visibleColumns.logFile && (
         <td style={{ textAlign: 'center' }}>
           {log.logContent ? (
-            <a
-              href={`${API_URL}/api/download/log/${log.id}`}
-              title="Download Log File"
-              style={{ color: '#005fbc', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-            </a>
+            hasAccess ? (
+              <a
+                href={`${API_URL}/api/download/log/${log.id}`}
+                title="Download Log File"
+                style={{ color: '#005fbc', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </a>
+            ) : (
+              <span
+                title="You don't have access to this project. Only Admin or project members can download."
+                style={{
+                  color: '#ccc',
+                  cursor: 'not-allowed',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  opacity: 0.4
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </span>
+            )
           ) : (
             <span style={{ color: '#999' }}>-</span>
           )}
@@ -94,17 +113,36 @@ const LogRow = React.memo(({ log, visibleColumns }) => {
       {visibleColumns.resultFile && (
         <td style={{ textAlign: 'center' }}>
           {log.resultContent ? (
-            <a
-              href={`${API_URL}/api/download/result/${log.id}`}
-              title="Download Result File"
-              style={{ color: '#005fbc', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-            </a>
+            hasAccess ? (
+              <a
+                href={`${API_URL}/api/download/result/${log.id}`}
+                title="Download Result File"
+                style={{ color: '#005fbc', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </a>
+            ) : (
+              <span
+                title="You don't have access to this project. Only Admin or project members can download."
+                style={{
+                  color: '#ccc',
+                  cursor: 'not-allowed',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  opacity: 0.4
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </span>
+            )
           ) : (
             <span style={{ color: '#999' }}>-</span>
           )}
@@ -117,7 +155,7 @@ const LogRow = React.memo(({ log, visibleColumns }) => {
 LogRow.displayName = 'LogRow';
 
 // Main LogsPage component with React.memo for optimization
-const LogsPage = React.memo(({ logs, error, refreshLogs }) => {
+const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [projectFilter, setProjectFilter] = useState('');
@@ -147,7 +185,7 @@ const LogsPage = React.memo(({ logs, error, refreshLogs }) => {
     return saved ? JSON.parse(saved) : defaultColumns;
   });
 
-// Save column visibility to sessionStorage whenever it changes
+  // Save column visibility to sessionStorage whenever it changes
   useEffect(() => {
     sessionStorage.setItem('logsColumnVisibility', JSON.stringify(visibleColumns));
   }, [visibleColumns]);
@@ -176,25 +214,62 @@ const LogsPage = React.memo(({ logs, error, refreshLogs }) => {
     { key: 'resultFile', label: 'Result File' }
   ];
 
-  // Get unique values for filters
+  // Compute access for logs using already-loaded projects data
+  const logsWithAccess = useMemo(() => {
+    if (!userInfo || !projects) return logs;
+
+    // Check if user is admin
+    const isAdmin = userInfo.isAdmin || userInfo.scopes?.some(s => s.endsWith('.Admin'));
+
+    return logs.map(log => {
+      // Admin has access to everything
+      if (isAdmin) {
+        return { ...log, hasAccess: true };
+      }
+
+      // Find matching project
+      const project = projects.find(
+        p => p.projectName === log.projectName && p.environment === log.environment
+      );
+
+      // Check if user is a project member
+      const userId = userInfo.email || userInfo.id;
+      let projectMembers = [];
+
+      if (project?.projectMembers) {
+        try {
+          projectMembers = typeof project.projectMembers === 'string'
+            ? JSON.parse(project.projectMembers)
+            : project.projectMembers;
+        } catch (e) {
+          projectMembers = [];
+        }
+      }
+
+      const hasAccess = projectMembers.includes(userId);
+      return { ...log, hasAccess };
+    });
+  }, [logs, projects, userInfo]);
+
+  // Get unique values for filters (use logsWithAccess)
   const uniqueProjects = useMemo(() => {
-    const projects = [...new Set(logs.map(log => log.projectName).filter(Boolean))];
-    return projects.sort();
-  }, [logs]);
+    const projectNames = [...new Set(logsWithAccess.map(log => log.projectName).filter(Boolean))];
+    return projectNames.sort();
+  }, [logsWithAccess]);
 
   const uniqueEnvironments = useMemo(() => {
-    const environments = [...new Set(logs.map(log => log.environment).filter(Boolean))];
+    const environments = [...new Set(logsWithAccess.map(log => log.environment).filter(Boolean))];
     return environments.sort();
-  }, [logs]);
+  }, [logsWithAccess]);
 
-  // Filter logs based on selected filters
+  // Filter logs based on selected filters (use logsWithAccess)
   const filteredLogs = useMemo(() => {
-    return logs.filter(log => {
+    return logsWithAccess.filter(log => {
       const matchesProject = !projectFilter || log.projectName === projectFilter;
       const matchesEnvironment = !environmentFilter || log.environment === environmentFilter;
       return matchesProject && matchesEnvironment;
     });
-  }, [logs, projectFilter, environmentFilter]);
+  }, [logsWithAccess, projectFilter, environmentFilter]);
 
   // Calculate pagination based on filtered logs
   const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
@@ -432,7 +507,12 @@ const LogsPage = React.memo(({ logs, error, refreshLogs }) => {
               </tr>
             )}
             {currentLogs.map((log) => (
-              <LogRow key={log.id} log={log} visibleColumns={visibleColumns} />
+              <LogRow
+                key={log.id}
+                log={log}
+                visibleColumns={visibleColumns}
+                hasAccess={log.hasAccess}
+              />
             ))}
           </tbody>
         </table>

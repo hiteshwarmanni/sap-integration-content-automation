@@ -45,6 +45,9 @@ LOCAL_DEBUG_GUIDE.md
 REFACTORING_SUMMARY.md
 OPTIMIZATION_RECOMMENDATIONS.md
 DB_SERVICE_RENAME_COMMANDS.md
+LOGGING_GUIDE.md
+AUTHORIZATION_GUIDE.md
+STREAMING_IMPLEMENTATION.md
 
 # MTA build artifacts
 mta_archives/
@@ -60,6 +63,9 @@ Makefile*.mta
 Thumbs.db
 desktop.ini
 
+# Build scripts
+build.bat
+
 # IDE files
 .vscode/
 .vscode/launch.json
@@ -73,6 +79,8 @@ desktop.ini
 *.spec.js
 __tests__/
 coverage/
+server/test-streaming.js
+server/test-data.csv
 
 # Example files
 .env.example

@@ -6,9 +6,11 @@ import { API_URL } from './config';
 // import SAPLogo from './assets/SAP_Logo.png'; // Commented out SAP logo
 import softwareLogo from './assets/software.png';
 
-// --- Lazy load page components for better performance ---
-const HomePage = lazy(() => import('./pages/HomePage'));
-const ProjectMasterPage = lazy(() => import('./pages/ProjectMasterPage'));
+// --- Preload critical pages immediately (HomePage and ProjectMasterPage) ---
+import HomePage from './pages/HomePage';
+import ProjectMasterPage from './pages/ProjectMasterPage';
+
+// --- Lazy load other pages for better performance ---
 const DownloadPage = lazy(() => import('./pages/DownloadPage'));
 const UploadPage = lazy(() => import('./pages/UploadPage'));
 const DeployPage = lazy(() => import('./pages/DeployPage'));
@@ -132,8 +134,14 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
-    // Clear any stored tokens/data and redirect to logout endpoint
+  const handleLogout = async () => {
+    try {
+      // Call logout API to log the event
+      await axios.post(`${API_URL}/api/logout`, {}, { withCredentials: true });
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  // Redirect to logout endpoint (approuter handles XSUAA logout)
     window.location.href = `${API_URL}/logout`;
   };
 
@@ -351,7 +359,7 @@ function App() {
                   element={<DeployPage isJobRunning={isJobRunning} setIsJobRunning={setIsJobRunning} refreshLogs={refreshLogs} projects={projects} />}
                 />
 
-                <Route path="/logs" element={<LogsPage logs={logs} error={logsError} refreshLogs={refreshLogs} />} />
+                <Route path="/logs" element={<LogsPage logs={logs} error={logsError} refreshLogs={refreshLogs} projects={projects} userInfo={userInfo} />} />
                 <Route path="/projects" element={<ProjectMasterPage projects={projects} error={projectsError} refreshProjects={refreshProjects} />} />
               </Routes>
             </Suspense>
