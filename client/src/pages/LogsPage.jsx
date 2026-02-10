@@ -163,6 +163,13 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef(null);
 
+  // Fetch logs on component mount (lazy loading)
+  useEffect(() => {
+    if (logs.length === 0 && !error) {
+      refreshLogs();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Default columns configuration
   const defaultColumns = {
     id: false, // Database Id column unselected by default
@@ -218,11 +225,15 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
   const logsWithAccess = useMemo(() => {
     if (!userInfo || !projects) return logs;
 
+    // Check if running in local development (no auth restrictions)
+    const isDevelopment = window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+
     // Check if user is admin
-    const isAdmin = userInfo.isAdmin || userInfo.scopes?.some(s => s.endsWith('.Admin'));
+    const isAdmin = isDevelopment || userInfo.isAdmin || userInfo.scopes?.some(s => s.endsWith('.Admin'));
 
     return logs.map(log => {
-      // Admin has access to everything
+      // In local development or Admin has access to everything
       if (isAdmin) {
         return { ...log, hasAccess: true };
       }

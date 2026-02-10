@@ -36,10 +36,13 @@ router.get('/', authenticate, async (req, res) => {
         const userId = userInfo.email || userInfo.id;
         const allProjects = await db.getAllProjects();
 
+        // Check if running locally (no auth restrictions)
+        const isLocal = !process.env.VCAP_APPLICATION;
+
         // Check if user has Delete scope (Admin)
-        const hasDeleteScope = req.authInfo &&
+        const hasDeleteScope = isLocal || (req.authInfo &&
             typeof req.authInfo.checkLocalScope === 'function' &&
-            req.authInfo.checkLocalScope('Delete');
+            req.authInfo.checkLocalScope('Delete'));
 
         // Map projects with access info
         const accessibleProjects = allProjects.map(project => {
@@ -95,10 +98,13 @@ router.get('/:id', authenticate, async (req, res) => {
             return res.status(404).json({ error: 'Project not found.' });
         }
 
+        // Check if running locally (no auth restrictions)
+        const isLocal = !process.env.VCAP_APPLICATION;
+
         // Check if user has Delete scope (Admin)
-        const hasDeleteScope = req.authInfo &&
+        const hasDeleteScope = isLocal || (req.authInfo &&
             typeof req.authInfo.checkLocalScope === 'function' &&
-            req.authInfo.checkLocalScope('Delete');
+            req.authInfo.checkLocalScope('Delete'));
 
         // Parse project members
         let members = [];
@@ -226,10 +232,13 @@ router.put('/:id', authenticate, async (req, res) => {
             return res.status(404).json({ error: 'Project not found.' });
         }
 
+        // Check if running locally (no auth restrictions)
+        const isLocal = !process.env.VCAP_APPLICATION;
+
         // Check if user has Delete scope (Admin)
-        const hasDeleteScope = req.authInfo &&
+        const hasDeleteScope = isLocal || (req.authInfo &&
             typeof req.authInfo.checkLocalScope === 'function' &&
-            req.authInfo.checkLocalScope('Delete');
+            req.authInfo.checkLocalScope('Delete'));
 
         // Parse project members
         let members = [];
@@ -327,10 +336,13 @@ router.delete('/:id', authenticate, async (req, res) => {
             return res.status(404).json({ error: 'Project not found.' });
         }
 
+        // Check if running locally (no auth restrictions)
+        const isLocal = !process.env.VCAP_APPLICATION;
+
         // Check if user has Delete scope (Admin)
-        const hasDeleteScope = req.authInfo &&
+        const hasDeleteScope = isLocal || (req.authInfo &&
             typeof req.authInfo.checkLocalScope === 'function' &&
-            req.authInfo.checkLocalScope('Delete');
+            req.authInfo.checkLocalScope('Delete'));
 
         // Parse project members
         let members = [];

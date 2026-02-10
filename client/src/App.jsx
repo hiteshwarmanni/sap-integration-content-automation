@@ -4,7 +4,8 @@ import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from './config';
 // import SAPLogo from './assets/SAP_Logo.png'; // Commented out SAP logo
-import softwareLogo from './assets/software.png';
+import softwareLogo from './assets/image.png';
+import { useAdminCheck } from './hooks/useAdminCheck';
 
 // --- Preload critical pages immediately (HomePage and ProjectMasterPage) ---
 import HomePage from './pages/HomePage';
@@ -15,6 +16,7 @@ const DownloadPage = lazy(() => import('./pages/DownloadPage'));
 const UploadPage = lazy(() => import('./pages/UploadPage'));
 const DeployPage = lazy(() => import('./pages/DeployPage'));
 const LogsPage = lazy(() => import('./pages/LogsPage'));
+const CleanupLogsPage = lazy(() => import('./pages/CleanupLogsPage'));
 
 // --- Loading fallback component ---
 const LoadingSpinner = () => (
@@ -54,6 +56,8 @@ function App() {
   const [logsError, setLogsError] = useState('');
   const [projects, setProjects] = useState([]);
   const [projectsError, setProjectsError] = useState('');
+  const [cleanupLogs, setCleanupLogs] = useState([]);
+  const [cleanupLogsError, setCleanupLogsError] = useState('');
   const [darkMode, setDarkMode] = useState(() => {
     // Initialize dark mode from localStorage or default to false
     const saved = localStorage.getItem('darkMode');
@@ -63,7 +67,10 @@ function App() {
   const sessionTimeoutRef = useRef(null);
   const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
-  // Function to fetch logs (called on app load and when jobs complete)
+  // Check if user is admin
+  const isAdmin = useAdminCheck(userInfo);
+
+  // Function to fetch logs (called when jobs complete or manually refreshed)
   const refreshLogs = async () => {
     try {
       const { data } = await axios.get(`${API_URL}/api/logs`);
@@ -89,6 +96,18 @@ function App() {
     }
   };
 
+  // Function to fetch cleanup logs (called when cleanup job completes or manually refreshed)
+  const refreshCleanupLogs = async () => {
+    try {
+      const { data } = await axios.get(`${API_URL}/api/cleanup/logs`);
+      setCleanupLogs(data || []);
+      setCleanupLogsError('');
+    } catch (err) {
+      setCleanupLogsError('Failed to fetch cleanup logs');
+      console.error(err);
+    }
+  };
+
   // Apply dark mode class to body
   useEffect(() => {
     if (darkMode) {
@@ -100,7 +119,7 @@ function App() {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
-  // Fetch user info and logs on component mount
+  // Fetch user info and projects on component mount (NOT logs - lazy load those)
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
@@ -113,8 +132,8 @@ function App() {
       }
     };
     fetchUserInfo();
-    refreshLogs(); // Fetch logs once on app load
     refreshProjects(); // Fetch projects once on app load
+    // NOTE: logs and cleanupLogs are fetched lazily when their pages are visited
   }, []);
 
   // Close user menu when clicking outside
@@ -211,27 +230,6 @@ function App() {
             <h1 className="app-title" style={{ fontFamily: "Arial, sans-serif" }}>IntOps</h1>
           </div>
           <div className="header-right">
-            {/* Dark Mode Toggle - Commented out for now */}
-            {/* <button className="theme-toggle-btn" onClick={toggleDarkMode} title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-              {darkMode ? (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="theme-icon">
-                  <circle cx="12" cy="12" r="5"></circle>
-                  <line x1="12" y1="1" x2="12" y2="3"></line>
-                  <line x1="12" y1="21" x2="12" y2="23"></line>
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                  <line x1="1" y1="12" x2="3" y2="12"></line>
-                  <line x1="21" y1="12" x2="23" y2="12"></line>
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="theme-icon">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                </svg>
-              )}
-            </button> */}
-
             <div className="user-menu-container" ref={userMenuRef}>
               <button className="profile-btn" onClick={toggleUserMenu}>
                 <svg className="profile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -336,6 +334,20 @@ function App() {
               <span className="nav-text">Logs</span>
             </NavLink>
 
+            {/* --- Cleanup Logs Link (Admin Only) --- */}
+            {isAdmin && (
+              <NavLink to="/cleanup-logs" onClick={handleNavClick}>
+                <span className="nav-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
+                    <path d="M3 3h18v18H3z"></path>
+                    <path d="M3 9h18"></path>
+                    <path d="M9 21V9"></path>
+                  </svg>
+                </span>
+                <span className="nav-text">Cleanup Logs</span>
+              </NavLink>
+            )}
+
           </nav>
 
           <main className="app-main">
@@ -361,6 +373,9 @@ function App() {
 
                 <Route path="/logs" element={<LogsPage logs={logs} error={logsError} refreshLogs={refreshLogs} projects={projects} userInfo={userInfo} />} />
                 <Route path="/projects" element={<ProjectMasterPage projects={projects} error={projectsError} refreshProjects={refreshProjects} />} />
+
+                {/* --- Cleanup Logs Route (Admin Only) --- */}
+                {isAdmin && <Route path="/cleanup-logs" element={<CleanupLogsPage cleanupLogs={cleanupLogs} error={cleanupLogsError} refreshCleanupLogs={refreshCleanupLogs} refreshLogs={refreshLogs} userInfo={userInfo} />} />}
               </Routes>
             </Suspense>
           </main>

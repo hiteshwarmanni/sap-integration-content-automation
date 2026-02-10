@@ -17,6 +17,15 @@ applications:
     env:
       NODE_ENV: production
       BEHIND_APPROUTER: "true"
+      # Cleanup job schedule (UTC timezone)
+      # Format: <DAILY/WEEKLY/MONTHLY> <HH>
+      # DAILY HH - Runs every day at specified hour (00-23)
+      # WEEKLY HH - Runs every Sunday at specified hour (00-23)
+      # MONTHLY HH - Runs 1st of every month at specified hour (00-23)
+      CLEANUP_SCHEDULE_UTC: "DAILY 00"
+      # Number of months to retain logs before cleanup
+      # Examples: 6 (6 months), 12 (1 year), 24 (2 years)
+      RETENTION_MONTHS: "12"
     services:
       - intops_db
       - intops_xsuaa

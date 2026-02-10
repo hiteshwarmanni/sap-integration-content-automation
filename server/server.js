@@ -9,6 +9,7 @@ const { defineRoutes } = require('./routes/index.js');
 const { initCloudLogging, logInfo, logError, logCritical } = require('./cloud-logger.js');
 const { requestLogger } = require('./middleware/request-logger.js');
 const { errorLogger } = require('./middleware/error-logger.js');
+const { initializeScheduler } = require('./scheduler.js');
 
 const app = express();
 
@@ -84,6 +85,9 @@ async function startServer() {
         nodeVersion: process.version,
         timestamp: new Date().toISOString()
       });
+
+      // Initialize scheduler for automated jobs (cleanup, etc.)
+      initializeScheduler();
     });
   } catch (error) {
     logCritical('Failed to start server', error);

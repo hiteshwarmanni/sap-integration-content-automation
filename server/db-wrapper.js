@@ -100,10 +100,12 @@ const db = {
         } else {
             const logs = await dbModule.selectRecords(
                 'LOGS',
-                '"PROJECT_NAME" = ? AND "ENVIRONMENT" = ? AND "ACTIVITY_TYPE" = ? ORDER BY "ID" DESC',
+                '"PROJECT_NAME" = ? AND "ENVIRONMENT" = ? AND "ACTIVITY_TYPE" = ?',
                 [projectName, environment, activityType]
             );
             if (logs.length === 0) return null;
+            // Sort by ID descending to get the most recent
+            logs.sort((a, b) => b.ID - a.ID);
             const log = logs[0];
             return {
                 id: log.ID,
@@ -365,6 +367,200 @@ const db = {
             return await knex('projects').where({ id }).delete();
         } else {
             return await dbModule.deleteRecords('PROJECTS', '"ID" = ?', [id]);
+        }
+    },
+
+    // ========== CLEANUP OPERATIONS ==========
+
+    // Get logs older than cutoff date (for cleanup job)
+    async getLogsOlderThan(cutoffDate) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            return await knex('logs')
+                .where('timestamp', '<', cutoffDate.toISOString())
+                .select('id', 'projectName', 'environment', 'timestamp');
+        } else {
+            const logs = await dbModule.selectRecords(
+                'LOGS',
+                '"TIMESTAMP" < ?',
+                [cutoffDate.toISOString()],
+                '"ID", "PROJECT_NAME", "ENVIRONMENT", "TIMESTAMP"'
+            );
+            return logs.map(log => ({
+                id: log.ID,
+                projectName: log.PROJECT_NAME,
+                environment: log.ENVIRONMENT,
+                timestamp: log.TIMESTAMP
+            }));
+        }
+    },
+
+    // Clear LOG_CONTENT and RESULT_CONTENT for logs older than cutoff date
+    async clearLogContent(cutoffDate) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            const updated = await knex('logs')
+                .where('timestamp', '<', cutoffDate.toISOString())
+                .update({
+                    logContent: null,
+                    resultContent: null
+                });
+            return updated;
+        } else {
+            const result = await dbModule.updateRecords(
+                'LOGS',
+                {
+                    LOG_CONTENT: null,
+                    RESULT_CONTENT: null
+                },
+                '"TIMESTAMP" < ?',
+                [cutoffDate.toISOString()]
+            );
+            return result;
+        }
+    },
+
+    // ========== CLEANUP LOGS OPERATIONS ==========
+
+    // Insert a cleanup log entry
+    async createCleanupLog(data) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            const [result] = await knex('cleanup_logs').insert({
+                executionTimestamp: data.executionTimestamp,
+                status: data.status,
+                logsCleanedCount: data.logsCleanedCount,
+                message: data.message,
+                durationSeconds: data.durationSeconds,
+                cutoffDate: data.cutoffDate,
+                errorMessage: data.errorMessage || null
+            }).returning('id');
+            return result.id || result[0].id || result[0];
+        } else {
+            return await dbModule.insertAndReturnId('CLEANUP_LOGS', {
+                EXECUTION_TIMESTAMP: data.executionTimestamp,
+                STATUS: data.status,
+                LOGS_CLEANED_COUNT: data.logsCleanedCount,
+                MESSAGE: data.message,
+                DURATION_SECONDS: data.durationSeconds,
+                CUTOFF_DATE: data.cutoffDate,
+                ERROR_MESSAGE: data.errorMessage || null
+            });
+        }
+    },
+
+    // Get all cleanup logs with optional date range filter and pagination
+    async getAllCleanupLogs(filters = {}) {
+        const { dateFrom, dateTo, limit = 50, offset = 0 } = filters;
+
+        if (isLocal) {
+            const { knex } = dbModule;
+            let query = knex('cleanup_logs').select('*');
+
+            if (dateFrom) {
+                query = query.where('executionTimestamp', '>=', dateFrom);
+            }
+            if (dateTo) {
+                query = query.where('executionTimestamp', '<=', dateTo);
+            }
+
+            query = query.orderBy('id', 'desc').limit(limit).offset(offset);
+            return await query;
+        } else {
+            let whereClause = '';
+            const params = [];
+
+            if (dateFrom && dateTo) {
+                whereClause = '"EXECUTION_TIMESTAMP" >= ? AND "EXECUTION_TIMESTAMP" <= ?';
+                params.push(dateFrom, dateTo);
+            } else if (dateFrom) {
+                whereClause = '"EXECUTION_TIMESTAMP" >= ?';
+                params.push(dateFrom);
+            } else if (dateTo) {
+                whereClause = '"EXECUTION_TIMESTAMP" <= ?';
+                params.push(dateTo);
+            }
+
+            // Fetch all logs matching the filter (no ORDER BY/LIMIT in WHERE clause)
+            const logs = await dbModule.selectRecords('CLEANUP_LOGS', whereClause, params, '*');
+
+            // Sort by ID descending in JavaScript
+            const sortedLogs = logs.sort((a, b) => b.ID - a.ID);
+
+            // Apply pagination in JavaScript
+            const paginatedLogs = sortedLogs.slice(offset, offset + limit);
+
+            return paginatedLogs.map(log => ({
+                id: log.ID,
+                executionTimestamp: log.EXECUTION_TIMESTAMP,
+                status: log.STATUS,
+                logsCleanedCount: log.LOGS_CLEANED_COUNT,
+                message: log.MESSAGE,
+                durationSeconds: log.DURATION_SECONDS,
+                cutoffDate: log.CUTOFF_DATE,
+                errorMessage: log.ERROR_MESSAGE,
+                createdAt: log.CREATED_AT
+            }));
+        }
+    },
+
+    // Get total count of cleanup logs with optional date filter
+    async getCleanupLogsCount(filters = {}) {
+        const { dateFrom, dateTo } = filters;
+
+        if (isLocal) {
+            const { knex } = dbModule;
+            let query = knex('cleanup_logs').count('* as count');
+
+            if (dateFrom) {
+                query = query.where('executionTimestamp', '>=', dateFrom);
+            }
+            if (dateTo) {
+                query = query.where('executionTimestamp', '<=', dateTo);
+            }
+
+            const result = await query.first();
+            return result.count;
+        } else {
+            let whereClause = '';
+            const params = [];
+
+            if (dateFrom && dateTo) {
+                whereClause = '"EXECUTION_TIMESTAMP" >= ? AND "EXECUTION_TIMESTAMP" <= ?';
+                params.push(dateFrom, dateTo);
+            } else if (dateFrom) {
+                whereClause = '"EXECUTION_TIMESTAMP" >= ?';
+                params.push(dateFrom);
+            } else if (dateTo) {
+                whereClause = '"EXECUTION_TIMESTAMP" <= ?';
+                params.push(dateTo);
+            }
+
+            const logs = await dbModule.selectRecords('CLEANUP_LOGS', whereClause, params, 'COUNT(*) as COUNT');
+            return logs[0].COUNT;
+        }
+    },
+
+    // Get specific cleanup log by ID
+    async getCleanupLogById(id) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            return await knex('cleanup_logs').where({ id }).first();
+        } else {
+            const logs = await dbModule.selectRecords('CLEANUP_LOGS', '"ID" = ?', [id]);
+            if (logs.length === 0) return null;
+            const log = logs[0];
+            return {
+                id: log.ID,
+                executionTimestamp: log.EXECUTION_TIMESTAMP,
+                status: log.STATUS,
+                logsCleanedCount: log.LOGS_CLEANED_COUNT,
+                message: log.MESSAGE,
+                durationSeconds: log.DURATION_SECONDS,
+                cutoffDate: log.CUTOFF_DATE,
+                errorMessage: log.ERROR_MESSAGE,
+                createdAt: log.CREATED_AT
+            };
         }
     }
 };

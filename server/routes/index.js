@@ -7,6 +7,7 @@ const downloadRoutes = require('./download.routes');
 const uploadRoutes = require('./upload.routes');
 const deployRoutes = require('./deploy.routes');
 const projectRoutes = require('./projects.routes');
+const cleanupRoutes = require('./cleanup.routes');
 
 function defineRoutes(app) {
     // Auth routes - /api/user-info, /logout
@@ -27,6 +28,9 @@ function defineRoutes(app) {
 
     // Project routes - /api/projects, /api/projects/:id, etc.
     app.use('/api/projects', projectRoutes);
+
+    // Cleanup routes - /api/cleanup/latest, /api/cleanup/run (Admin only)
+    app.use('/api/cleanup', cleanupRoutes);
 }
 
 module.exports = {

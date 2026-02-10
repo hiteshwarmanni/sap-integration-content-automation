@@ -144,6 +144,23 @@ async function setupDatabase() {
     logInfo("Database initialized", { table: 'projects' });
   }
 
+  // --- 5. Create the 'cleanup_logs' table ---
+  const cleanupLogsTableExists = await knex.schema.hasTable('cleanup_logs');
+  if (!cleanupLogsTableExists) {
+    await knex.schema.createTable('cleanup_logs', (table) => {
+      table.increments('id').primary();
+      table.timestamp('executionTimestamp');
+      table.string('status', 50);
+      table.integer('logsCleanedCount');
+      table.text('message');
+      table.integer('durationSeconds');
+      table.timestamp('cutoffDate');
+      table.string('errorMessage', 1000);
+      table.timestamp('createdAt').defaultTo(knex.fn.now());
+    });
+    logInfo("Database initialized", { table: 'cleanup_logs' });
+  }
+
 }
 
 // Get project by name and environment
