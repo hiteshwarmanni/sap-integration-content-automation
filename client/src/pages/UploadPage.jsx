@@ -237,7 +237,7 @@ function UploadPage({ isJobRunning, setIsJobRunning, refreshLogs, projects: proj
         </div>
 
         <div className="form-group">
-          <label>CPI Base URL *</label>
+          <label>Cloud Integration Base URL (API Plan) *</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
             <input
               type="text" name="cpiBaseUrl"

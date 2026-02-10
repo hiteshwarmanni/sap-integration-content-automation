@@ -193,7 +193,7 @@ function ProjectMasterPage({ projects, error: projectsError, refreshProjects }) 
                         </div>
 
                         <div className="form-group">
-                            <label>CPI Base URL *</label>
+                            <label>Cloud Integration Base URL (API Plan) *</label>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
                                 <input
                                     type="text"
@@ -260,7 +260,7 @@ function ProjectMasterPage({ projects, error: projectsError, refreshProjects }) 
                         </div>
 
                         <div className="form-group">
-                            <label>Project Members (Comma-separated emails)</label>
+                            <label>Additional Project Members (Comma-separated emails)</label>
                             <textarea
                                 name="projectMembers"
                                 value={formData.projectMembers}
@@ -429,7 +429,7 @@ function ProjectMasterPage({ projects, error: projectsError, refreshProjects }) 
                                 <tr>
                                     <th>Project Name</th>
                                     <th>Environment</th>
-                                    <th>CPI Base URL</th>
+                                        <th>Cloud Integration Base URL (API Plan)</th>
                                     <th>Members</th>
                                     <th>Created By</th>
                                     <th>Access</th>
