@@ -194,8 +194,8 @@ router.post('/', authenticate, async (req, res) => {
             clientId,
             clientSecret,
             projectMembers: JSON.stringify(members),
-            createdBy: userName,
-            updatedBy: userName
+            createdBy: userId,  // Use email ID instead of name
+            updatedBy: userId   // Use email ID instead of name
         });
 
         logInfo('Project created successfully', {
@@ -297,7 +297,7 @@ router.put('/:id', authenticate, async (req, res) => {
             fieldCount: changedFields.length
         });
 
-        await db.updateProject(id, updateData, userName);
+        await db.updateProject(id, updateData, userId);  // Use email ID instead of name
 
         logInfo('Project updated successfully', {
             projectId: id,
