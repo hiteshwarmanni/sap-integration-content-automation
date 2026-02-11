@@ -9,6 +9,51 @@ const { updateProgress, setTotal, updateStatus } = require('./shared/progress-tr
 const { finalizeJob } = require('./shared/job-finalizer.js');
 const { DOWNLOAD_CSV_HEADERS } = require('./constants.js');
 
+
+/**
+ * Fetches all available integration packages from SAP CPI
+ * @param {string} jobDataJson - JSON string containing form data with credentials
+ * @returns {Promise<Array>} Array of packages with Id and Name
+ */
+async function getPackageDetails(jobDataJson) {
+    const { formData } = JSON.parse(jobDataJson);
+    let { cpiBaseUrl, tokenUrl, clientId, clientSecret } = formData;
+
+    // Automatically append API path suffix to CPI Base URL
+    if (cpiBaseUrl && !cpiBaseUrl.endsWith(CPI_API_PATH_SUFFIX)) {
+        cpiBaseUrl = cpiBaseUrl.replace(/\/$/, '') + CPI_API_PATH_SUFFIX;
+    }
+
+    try {
+        // Get Auth Token (without logger for quick operations)
+        const accessToken = await getOAuthToken(tokenUrl, clientId, clientSecret, null);
+        const authHeader = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' };
+
+        // Get ALL Packages
+        const packagesUrl = `${cpiBaseUrl}/IntegrationPackages`;
+        const packagesResponse = await axios.get(packagesUrl, { headers: authHeader });
+
+        // Handle different API response formats
+        let allPackages = [];
+        if (packagesResponse.data && packagesResponse.data.d && packagesResponse.data.d.results) {
+            allPackages = packagesResponse.data.d.results;
+        } else if (packagesResponse.data && Array.isArray(packagesResponse.data)) {
+            allPackages = packagesResponse.data;
+        } else {
+            throw new Error('Unable to parse packages from API response. Check API URL and credentials.');
+        }
+
+        // Return simplified package list with Id and Name
+        return allPackages.map(pkg => ({
+            id: pkg.Id,
+            name: pkg.Name
+        }));
+    } catch (error) {
+        const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
+        throw new Error(`Failed to fetch packages: ${errorMsg}`);
+    }
+}
+
 /**
  * Executes a download job to fetch integration package configurations
  * @param {number} jobId - The download job ID
@@ -119,6 +164,8 @@ async function runDownloadJob(jobId) {
                 logger.info(`Found ${iFlows.length} iFlows for package: ${pkg.Name}`);
 
                 for (const iflow of iFlows) {
+
+                    logger.info(`--- Processing Interface: ${iflow.Name} ---`);
                     // Track unique iFlows
                     processedIFlows.add(iflow.Id);
 
@@ -138,6 +185,7 @@ async function runDownloadJob(jobId) {
                         parameterTotalCount += configurations.length;
                         parameterSuccessCount += configurations.length; // All params fetched successfully
 
+                        logger.info(`Found ${parameterTotalCount} parameters and successfully processed ${parameterSuccessCount} parameters`);
                         // Mark iFlow as successful
                         successfulIFlows.add(iflow.Id);
                     } catch (iflowError) {
@@ -227,5 +275,6 @@ async function runDownloadJob(jobId) {
 }
 
 module.exports = {
-    runDownloadJob
+    runDownloadJob,
+    getPackageDetails
 };

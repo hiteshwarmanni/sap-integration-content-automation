@@ -3,8 +3,33 @@ const express = require('express');
 const router = express.Router();
 const { authenticate, getUserInfo, checkScope } = require('../auth-middleware');
 const db = require('../db-wrapper');
-const { runDownloadJob } = require('../jobs');
+const { runDownloadJob, getPackageDetails } = require('../jobs');
 const { logInfo, logError, logApiRequest } = require('../cloud-logger');
+
+
+// Get Package Name details
+router.post('/get-package-details', authenticate, async (req, res) => {
+    try {
+        const userInfo = getUserInfo(req);
+        const userName = userInfo.email || userInfo.id || 'Unknown User';
+
+        // Validate that credentials are provided
+        if (!req.body.tokenUrl || !req.body.clientId || !req.body.clientSecret) {
+            logApiRequest(req, 'error', { reason: 'Missing credentials' });
+            return res.status(400).json({ error: 'Missing required credentials.' });
+        }
+
+        const formDataWithUser = { ...req.body, userName };
+        const jobData = { formData: formDataWithUser };
+
+        // Call getPackageDetails and return the packages
+        const packages = await getPackageDetails(JSON.stringify(jobData));
+
+        res.status(200).json({ packages });
+    } catch (error) {
+        res.status(500).json({ error: error.message || 'Failed to fetch packages.' });
+    }
+});
 
 // Start download job - requires Execute scope
 router.post('/start-download-job', authenticate, async (req, res) => {

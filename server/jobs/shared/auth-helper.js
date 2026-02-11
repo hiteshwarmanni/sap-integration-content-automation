@@ -11,11 +11,12 @@ const axios = require('axios');
  * @returns {Promise<string>} Access token
  */
 async function getOAuthToken(tokenUrl, clientId, clientSecret, logger) {
-    logger.info('Getting Auth Token...');
-    logger.info(`Token URL: ${tokenUrl}`);
-    logger.info(`Client ID length: ${clientId ? clientId.length : 0}`);
-    logger.info(`Client Secret length: ${clientSecret ? clientSecret.length : 0}`);
-
+    if (logger != null) {
+        logger.info('Getting Auth Token...');
+        logger.info(`Token URL: ${tokenUrl}`);
+        logger.info(`Client ID length: ${clientId ? clientId.length : 0}`);
+        logger.info(`Client Secret length: ${clientSecret ? clientSecret.length : 0}`);
+    }
     // Create Basic Auth header manually to handle special characters
     const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     const tokenBody = new URLSearchParams();
@@ -30,12 +31,16 @@ async function getOAuthToken(tokenUrl, clientId, clientSecret, logger) {
         });
 
         const accessToken = tokenResponse.data.access_token;
-        logger.info('Auth Token acquired successfully.');
+        if (logger != null) {
+            logger.info('Auth Token acquired successfully.');
+        }
         return accessToken;
     } catch (tokenError) {
-        logger.error('Token acquisition failed:');
-        logger.error(`Status: ${tokenError.response?.status}`);
-        logger.error(`Response: ${JSON.stringify(tokenError.response?.data)}`);
+        if (logger != null) {
+            logger.error('Token acquisition failed:');
+            logger.error(`Status: ${tokenError.response?.status}`);
+            logger.error(`Response: ${JSON.stringify(tokenError.response?.data)}`);
+        }
         throw tokenError;
     }
 }

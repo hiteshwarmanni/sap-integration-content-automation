@@ -1,5 +1,5 @@
 // server/middleware/request-logger.js
-const { logInfo, logError, generateCorrelationId, timeStart, timeEnd } = require('../cloud-logger');
+const { logInfo, logError, logWarning, generateCorrelationId, timeStart, timeEnd } = require('../cloud-logger');
 
 // Paths to skip logging (health checks, static assets)
 const SKIP_PATHS = ['/api/health', '/api/ready', '/favicon.ico'];
