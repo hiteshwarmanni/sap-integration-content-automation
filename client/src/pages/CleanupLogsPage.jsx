@@ -426,7 +426,7 @@ const CleanupLogsPage = ({ cleanupLogs, error, refreshCleanupLogs, refreshLogs, 
                                                                 )}
 
                                                                 {/* If no structured data, show raw message */}
-                                                                {projectLines.length === 0 && !summaryLine.includes('Cleaned') && (
+                                                                {projectLines.length === 0 && !summaryLine.includes('Cleaned') && !summaryLine.includes('No logs older than') && (
                                                                     <div style={{
                                                                         fontFamily: 'monospace',
                                                                         fontSize: '0.85rem',

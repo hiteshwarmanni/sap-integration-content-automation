@@ -246,6 +246,15 @@ function App() {
                     <div className="user-details">
                       <div className="user-name">{userInfo?.name || 'User'}</div>
                       <div className="user-email">{userInfo?.email || ''}</div>
+                      <div className="user-admin-status">
+                        <span style={{
+                          fontSize: '0.75rem',
+                          color: isAdmin ? '#28a745' : '#6c757d',
+                          fontWeight: '500'
+                        }}>
+                          Admin: {isAdmin ? 'true' : 'false'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div className="user-menu-divider"></div>
