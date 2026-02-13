@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
 
-function ProjectMasterPage({ projects, error: projectsError, refreshProjects }) {
+function ProjectMasterPage({ projects, error: projectsError, refreshProjects, refreshCleanupLogs }) {
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
     const [showForm, setShowForm] = useState(false);
@@ -113,6 +113,12 @@ function ProjectMasterPage({ projects, error: projectsError, refreshProjects }) 
             await axios.delete(`${API_URL}/api/projects/${projectToDelete.id}`);
             setSuccess('Project deleted successfully!');
             refreshProjects(); // Call parent's refresh function
+
+            // Also refresh cleanup logs to show the deletion entry
+            // if (refreshCleanupLogs) {
+            refreshCleanupLogs();
+            // }
+
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             const errorMsg = err.response?.data?.error || 'Failed to delete project';

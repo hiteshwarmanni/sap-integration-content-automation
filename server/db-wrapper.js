@@ -431,7 +431,7 @@ const db = {
                 status: data.status,
                 logsCleanedCount: data.logsCleanedCount,
                 message: data.message,
-                durationSeconds: data.durationSeconds,
+                executedBy: data.executedBy,
                 cutoffDate: data.cutoffDate,
                 errorMessage: data.errorMessage || null
             }).returning('id');
@@ -442,7 +442,7 @@ const db = {
                 STATUS: data.status,
                 LOGS_CLEANED_COUNT: data.logsCleanedCount,
                 MESSAGE: data.message,
-                DURATION_SECONDS: data.durationSeconds,
+                EXECUTED_BY: data.executedBy,
                 CUTOFF_DATE: data.cutoffDate,
                 ERROR_MESSAGE: data.errorMessage || null
             });
@@ -496,7 +496,7 @@ const db = {
                 status: log.STATUS,
                 logsCleanedCount: log.LOGS_CLEANED_COUNT,
                 message: log.MESSAGE,
-                durationSeconds: log.DURATION_SECONDS,
+                executedBy: log.EXECUTED_BY,
                 cutoffDate: log.CUTOFF_DATE,
                 errorMessage: log.ERROR_MESSAGE,
                 createdAt: log.CREATED_AT
@@ -556,7 +556,7 @@ const db = {
                 status: log.STATUS,
                 logsCleanedCount: log.LOGS_CLEANED_COUNT,
                 message: log.MESSAGE,
-                durationSeconds: log.DURATION_SECONDS,
+                executedBy: log.EXECUTED_BY,
                 cutoffDate: log.CUTOFF_DATE,
                 errorMessage: log.ERROR_MESSAGE,
                 createdAt: log.CREATED_AT

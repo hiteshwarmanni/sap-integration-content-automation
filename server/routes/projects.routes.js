@@ -374,6 +374,22 @@ router.delete('/:id', authenticate, async (req, res) => {
         // Delete the project
         await db.deleteProject(id);
 
+        // Log project deletion in CLEANUP_LOGS table
+        try {
+            const deletionTimestamp = new Date();
+            await db.createCleanupLog({
+                executionTimestamp: deletionTimestamp,
+                status: 'Project Deleted',
+                logsCleanedCount: 1,
+                message: `Project deleted: ${project.projectName} - Environment: ${project.environment}`,
+                executedBy: userId,
+                cutoffDate: deletionTimestamp,
+                errorMessage: null
+            });
+        } catch (logError) {
+            logError('Failed to log project deletion in CLEANUP_LOGS', logErr);
+        }
+
         logInfo('Project deleted', {
             projectId: id,
             projectName: project.projectName,
@@ -385,6 +401,22 @@ router.delete('/:id', authenticate, async (req, res) => {
         logApiRequest(req, 'success', { projectId: id });
         res.json({ message: 'Project deleted successfully' });
     } catch (error) {
+        // Log failed deletion attempt in CLEANUP_LOGS table
+        try {
+            const deletionTimestamp = new Date();
+            await db.createCleanupLog({
+                executionTimestamp: deletionTimestamp,
+                status: 'Project Deletion Failed',
+                logsCleanedCount: 0,
+                message: `Failed to delete project: ${project?.projectName || 'Unknown'} - Environment: ${project?.environment || 'Unknown'}`,
+                executedBy: userId || 'Unknown',
+                cutoffDate: deletionTimestamp,
+                errorMessage: error.message
+            });
+        } catch (logError) {
+            logError('Failed to log project deletion error in CLEANUP_LOGS', logError);
+        }
+
         logError(`Error deleting project ${req.params.id}`, error);
         logApiRequest(req, 'error', { projectId: req.params.id, error: error.message });
         res.status(500).json({ error: error.message });

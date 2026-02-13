@@ -4,7 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db-wrapper');
-const { authenticate, checkScope } = require('../auth-middleware');
+const { authenticate, checkScope, getUserInfo } = require('../auth-middleware');
 const { runCleanupJob } = require('../jobs/cleanup-job');
 const { logInfo, logError, logApiRequest } = require('../cloud-logger');
 
@@ -49,17 +49,24 @@ router.get('/logs/:id', authenticate, checkScope('Admin'), async (req, res) => {
 // POST /api/cleanup/run - Manually trigger cleanup job (Admin only, for testing)
 router.post('/run', authenticate, checkScope('Admin'), async (req, res) => {
     try {
-        logInfo('Manual cleanup job triggered by admin');
-        logApiRequest(req, 'success', { action: 'Manual cleanup triggered' });
+
+        const userInfo = getUserInfo(req);
+        const userEmail = userInfo.email || userInfo.id || 'Unknown User';
+        // Get user info from request
+        // const userEmail = req.user?.email || req.user?.id || 'UNKNOWN_USER';
+
+        logInfo('Manual cleanup job triggered by admin: ', { userEmail });
+        logApiRequest(req, 'success', { action: 'Manual cleanup triggered', userEmail });
 
         // Send immediate response
         res.json({
             message: 'Database cleanup job started. Check /api/cleanup/latest for results.',
-            status: 'Running'
+            status: 'Running',
+            triggeredBy: userEmail
         });
 
-        // Run cleanup job asynchronously
-        runCleanupJob().catch(error => {
+        // Run cleanup job asynchronously with user info
+        runCleanupJob(userEmail).catch(error => {
             logError('Manual cleanup job failed', error);
         });
 

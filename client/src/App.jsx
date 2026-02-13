@@ -381,7 +381,7 @@ function App() {
                 />
 
                 <Route path="/logs" element={<LogsPage logs={logs} error={logsError} refreshLogs={refreshLogs} projects={projects} userInfo={userInfo} />} />
-                <Route path="/projects" element={<ProjectMasterPage projects={projects} error={projectsError} refreshProjects={refreshProjects} />} />
+                <Route path="/projects" element={<ProjectMasterPage projects={projects} error={projectsError} refreshProjects={refreshProjects} refreshCleanupLogs={refreshCleanupLogs} />} />
 
                 {/* --- Cleanup Logs Route (Admin Only) --- */}
                 {isAdmin && <Route path="/cleanup-logs" element={<CleanupLogsPage cleanupLogs={cleanupLogs} error={cleanupLogsError} refreshCleanupLogs={refreshCleanupLogs} refreshLogs={refreshLogs} userInfo={userInfo} />} />}

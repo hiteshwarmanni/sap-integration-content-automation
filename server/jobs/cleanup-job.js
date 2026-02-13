@@ -63,12 +63,12 @@ function buildCleanupMessage(groupedLogs, totalCount, retentionMonths) {
 /**
  * Main cleanup job function
  * Clears LOG_CONTENT and RESULT_CONTENT for logs older than specified retention period
+ * @param {string} executedBy - User email or 'SCHEDULED_JOB' for scheduled executions
  */
-async function runCleanupJob() {
-    const startTime = Date.now();
+async function runCleanupJob(executedBy = 'SCHEDULED_JOB') {
     const executionTimestamp = new Date();
 
-    logInfo('Database cleanup job started');
+    logInfo('Database cleanup job started: ', { executedBy });
 
     try {
         // Step 1: Calculate cutoff date based on RETENTION_MONTHS
@@ -99,7 +99,6 @@ async function runCleanupJob() {
 
         // Step 3: If no logs to clean, save to database and exit
         if (logsToClean.length === 0) {
-            const durationSeconds = Math.round((Date.now() - startTime) / 1000);
             const retentionDescription = retentionMonths === 12
                 ? '1 year'
                 : retentionMonths < 12
@@ -112,12 +111,12 @@ async function runCleanupJob() {
                 status: 'Success',
                 logsCleanedCount: 0,
                 message,
-                durationSeconds,
+                executedBy,
                 cutoffDate,
                 errorMessage: null
             });
 
-            logInfo('Database cleanup completed - nothing to clean');
+            logInfo('Database cleanup completed - nothing to clean: ', { executedBy });
             return;
         }
 
@@ -133,14 +132,12 @@ async function runCleanupJob() {
         const message = buildCleanupMessage(groupedLogs, cleanedCount, retentionMonths);
 
         // Step 7: Save to database
-        const durationSeconds = Math.round((Date.now() - startTime) / 1000);
-
         await db.createCleanupLog({
             executionTimestamp,
             status: 'Success',
             logsCleanedCount: cleanedCount,
             message,
-            durationSeconds,
+            executedBy,
             cutoffDate,
             errorMessage: null
         });
@@ -148,7 +145,7 @@ async function runCleanupJob() {
         // Step 8: Log to cloud logger for audit trail
         logInfo('Database cleanup completed successfully', {
             cleanedCount,
-            durationSeconds,
+            executedBy,
             cutoffDate: cutoffDate.toISOString(),
             breakdown: groupedLogs
         });
@@ -157,15 +154,13 @@ async function runCleanupJob() {
         logError('Database cleanup job failed', error);
 
         // Save error to database
-        const durationSeconds = Math.round((Date.now() - startTime) / 1000);
-
         try {
             await db.createCleanupLog({
                 executionTimestamp,
                 status: 'Failed',
                 logsCleanedCount: 0,
                 message: `Cleanup failed: ${error.message}`,
-                durationSeconds,
+                executedBy,
                 cutoffDate: new Date(new Date().setFullYear(new Date().getFullYear() - 1)),
                 errorMessage: error.message
             });

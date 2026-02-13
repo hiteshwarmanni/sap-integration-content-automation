@@ -4,23 +4,6 @@ import axios from 'axios';
 import { API_URL } from '../config';
 import Pagination from '../components/Pagination';
 
-// Helper function to format time in human-readable format
-function formatTime(seconds) {
-    if (!seconds || seconds === '-') return '-';
-    const sec = parseInt(seconds);
-    if (isNaN(sec)) return seconds;
-
-    if (sec < 60) return `${sec}s`;
-    if (sec < 3600) {
-        const mins = Math.floor(sec / 60);
-        const secs = sec % 60;
-        return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-    }
-    const hours = Math.floor(sec / 3600);
-    const mins = Math.floor((sec % 3600) / 60);
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
-
 // Helper function to format date for display
 function formatDate(dateString) {
     if (!dateString) return '-';
@@ -294,7 +277,7 @@ const CleanupLogsPage = ({ cleanupLogs, error, refreshCleanupLogs, refreshLogs, 
                                 <th>Execution Time</th>
                                 <th>Status</th>
                                 <th>Logs Cleaned</th>
-                                <th>Duration</th>
+                                <th>Executed By</th>
                                 <th>Cutoff Date</th>
                             </tr>
                         </thead>
@@ -346,7 +329,29 @@ const CleanupLogsPage = ({ cleanupLogs, error, refreshCleanupLogs, refreshLogs, 
                                             </span>
                                         </td>
                                         <td>{log.logsCleanedCount || 0}</td>
-                                        <td>{formatTime(log.durationSeconds)}</td>
+                                        <td>
+                                            {log.executedBy === 'SCHEDULED_JOB' ? (
+                                                <span style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.3rem',
+                                                    padding: '0.25rem 0.5rem',
+                                                    background: '#e3f2fd',
+                                                    color: '#1976d2',
+                                                    borderRadius: '4px',
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: '500'
+                                                }}>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <circle cx="12" cy="12" r="10"></circle>
+                                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                                    </svg>
+                                                    SCHEDULED
+                                                </span>
+                                            ) : (
+                                                <span style={{ fontSize: '0.9rem' }}>{log.executedBy || '-'}</span>
+                                            )}
+                                        </td>
                                         <td>{formatDate(log.cutoffDate)}</td>
                                     </tr>
                                     {expandedRows.has(log.id) && (
