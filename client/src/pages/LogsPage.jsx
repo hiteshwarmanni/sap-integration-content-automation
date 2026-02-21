@@ -160,6 +160,7 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [projectFilter, setProjectFilter] = useState('');
   const [environmentFilter, setEnvironmentFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef(null);
 
@@ -273,14 +274,22 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
     return environments.sort();
   }, [logsWithAccess]);
 
-  // Filter logs based on selected filters (use logsWithAccess)
+  // Filter logs based on selected filters and search query (use logsWithAccess)
   const filteredLogs = useMemo(() => {
     return logsWithAccess.filter(log => {
       const matchesProject = !projectFilter || log.projectName === projectFilter;
       const matchesEnvironment = !environmentFilter || log.environment === environmentFilter;
-      return matchesProject && matchesEnvironment;
+
+      // Global search filter - searches across multiple fields
+      const matchesSearch = !searchQuery ||
+        log.projectName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.environment?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.activityType?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return matchesProject && matchesEnvironment && matchesSearch;
     });
-  }, [logsWithAccess, projectFilter, environmentFilter]);
+  }, [logsWithAccess, projectFilter, environmentFilter, searchQuery]);
 
   // Calculate pagination based on filtered logs
   const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
@@ -297,12 +306,13 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
   // Reset to page 1 when logs or filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [logs.length, projectFilter, environmentFilter]);
+  }, [logs.length, projectFilter, environmentFilter, searchQuery]);
 
   // Clear all filters - memoized
   const handleClearFilters = useCallback(() => {
     setProjectFilter('');
     setEnvironmentFilter('');
+    setSearchQuery('');
   }, []);
 
   // Close settings popup when clicking outside
@@ -328,7 +338,7 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
 
       {error && <div className="form-error" style={{ maxWidth: '100%' }}>{error}</div>}
 
-      {/* Filter Section */}
+      {/* Combined Search and Filter Section */}
       <div style={{
         background: '#ffffff',
         padding: '1.5rem',
@@ -341,7 +351,48 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
         flexWrap: 'wrap',
         position: 'relative'
       }}>
-        <div style={{ flex: '1', minWidth: '200px' }}>
+        {/* Search Box */}
+        <div style={{ flex: '2', minWidth: '300px' }}>
+          <label style={{ display: 'block', fontWeight: '600', marginBottom: '0.5rem', color: '#555' }}>
+            Search Logs
+          </label>
+          <div className="search-input-wrapper">
+            <svg
+              className="search-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search by project, environment, user, or activity..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                className="search-clear-btn"
+                onClick={() => setSearchQuery('')}
+                title="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Project Filter */}
+        <div style={{ flex: '1', minWidth: '180px' }}>
           <label style={{ display: 'block', fontWeight: '600', marginBottom: '0.5rem', color: '#555' }}>
             Filter by Project
           </label>
@@ -363,7 +414,8 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
           </select>
         </div>
 
-        <div style={{ flex: '1', minWidth: '200px' }}>
+        {/* Environment Filter */}
+        <div style={{ flex: '1', minWidth: '180px' }}>
           <label style={{ display: 'block', fontWeight: '600', marginBottom: '0.5rem', color: '#555' }}>
             Filter by Environment
           </label>
@@ -385,16 +437,18 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
           </select>
         </div>
 
+        {/* Clear Filters Button */}
         <button
           onClick={handleClearFilters}
           className="btn-primary"
-          disabled={!projectFilter && !environmentFilter}
+          disabled={!projectFilter && !environmentFilter && !searchQuery}
           style={{
             height: '38px',
-            padding: '0 1.5rem'
+            padding: '0 1.5rem',
+            whiteSpace: 'nowrap'
           }}
         >
-          Clear Filters
+          Clear All Filters
         </button>
 
         {/* Settings Icon */}
@@ -492,6 +546,13 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
           )}
         </div>
       </div>
+
+      {/* Search Results Info */}
+      {searchQuery && (
+        <div className="search-results-info" style={{ marginBottom: '1.5rem' }}>
+          Found {filteredLogs.length} result{filteredLogs.length !== 1 ? 's' : ''} for "{searchQuery}"
+        </div>
+      )}
 
       <div className="table-container">
         <table className="logs-table">

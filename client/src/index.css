@@ -1016,28 +1016,58 @@ h3 {
     color: #dc3545;
     font-weight: 600;
   }
-  
-  /* Dark mode adjustments for count colors */
-  .dark-mode .count-success {
-    color: #4ade80;
-  }
-  
-  .dark-mode .count-failed {
-    color: #f87171;
-  }
-  
-  /* --- 18. Dark Mode for Filter Section --- */
-  .dark-mode .filter-section {
-    background-color: #2d2d2d !important;
-  }
-  
-  .dark-mode select {
-    background-color: #1a1a1a;
-    color: #e0e0e0;
-    border-color: #404040;
-  }
-  
-  .dark-mode select option {
-    background-color: #1a1a1a;
-    color: #e0e0e0;
+/* --- 19. Search Input Styling --- */
+.search-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.6rem 2.5rem 0.6rem 2.5rem;
+  border: 2px solid #d1dadd;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--sap-blue);
+  box-shadow: 0 0 0 3px rgba(0, 95, 188, 0.1);
+}
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+  pointer-events: none;
+}
+.search-clear-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.search-clear-btn:hover {
+  background-color: #f0f0f0;
+  color: #333;
+}
+.search-results-info {
+  padding: 0.75rem 1rem;
+  background-color: #e7f3ff;
+  border-left: 3px solid var(--sap-blue);
+  border-radius: 4px;
+  color: #555;
+  font-size: 0.9rem;
+  margin-top: 1rem;
 }

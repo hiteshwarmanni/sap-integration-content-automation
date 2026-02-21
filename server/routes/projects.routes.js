@@ -278,7 +278,7 @@ router.put('/:id', authenticate, async (req, res) => {
         if (cpiBaseUrl !== undefined) { updateData.cpiBaseUrl = cpiBaseUrl; changedFields.push('cpiBaseUrl'); }
         if (tokenUrl !== undefined) { updateData.tokenUrl = tokenUrl; changedFields.push('tokenUrl'); }
         if (clientId !== undefined) { updateData.clientId = clientId; changedFields.push('clientId'); }
-        if (clientSecret !== undefined) { updateData.clientSecret = '***'; changedFields.push('clientSecret'); }
+        if (clientSecret !== undefined) { updateData.clientSecret = clientSecret; changedFields.push('clientSecret'); }
         if (projectMembers !== undefined) {
             updateData.projectMembers = JSON.stringify(projectMembers);
             changedFields.push('projectMembers');
