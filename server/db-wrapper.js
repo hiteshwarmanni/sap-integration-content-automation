@@ -420,6 +420,36 @@ const db = {
         }
     },
 
+    // Clear LOG_CONTENT and RESULT_CONTENT for specific log IDs (manual deletion)
+    async clearLogContentByIds(logIds) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            const updated = await knex('logs')
+                .whereIn('id', logIds)
+                .update({
+                    logContent: null,
+                    resultContent: null
+                });
+            return updated;
+        } else {
+            // For HANA, update each log ID separately
+            let totalUpdated = 0;
+            for (const logId of logIds) {
+                const result = await dbModule.updateRecords(
+                    'LOGS',
+                    {
+                        LOG_CONTENT: null,
+                        RESULT_CONTENT: null
+                    },
+                    '"ID" = ?',
+                    [logId]
+                );
+                totalUpdated += result;
+            }
+            return totalUpdated;
+        }
+    },
+
     // ========== CLEANUP LOGS OPERATIONS ==========
 
     // Insert a cleanup log entry

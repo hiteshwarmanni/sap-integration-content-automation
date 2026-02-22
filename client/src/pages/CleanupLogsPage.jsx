@@ -4,20 +4,22 @@ import axios from 'axios';
 import { API_URL } from '../config';
 import Pagination from '../components/Pagination';
 
-// Helper function to format date for display
+// Helper function to format date for display with timezone
 function formatDate(dateString) {
     if (!dateString) return '-';
     try {
         const date = new Date(dateString);
-        return date.toLocaleString('en-US', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false
-        });
+
+        // Format: yyyy-MM-dd HH:mm:ss
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+
+        // Timestamps are stored in UTC on the server (confirmed in server/scheduler.js)
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} (UTC)`;
     } catch (e) {
         return dateString;
     }
@@ -349,7 +351,23 @@ const CleanupLogsPage = ({ cleanupLogs, error, refreshCleanupLogs, refreshLogs, 
                                                     SCHEDULED
                                                 </span>
                                             ) : (
-                                                <span style={{ fontSize: '0.9rem' }}>{log.executedBy || '-'}</span>
+                                                    <span style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.3rem',
+                                                        padding: '0.25rem 0.5rem',
+                                                        background: '#fff3e0',
+                                                        color: '#e65100',
+                                                        borderRadius: '4px',
+                                                        fontSize: '0.85rem',
+                                                        fontWeight: '500'
+                                                    }}>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                                            <circle cx="12" cy="7" r="4"></circle>
+                                                        </svg>
+                                                        {log.executedBy}
+                                                    </span>
                                             )}
                                         </td>
                                         <td>{formatDate(log.cutoffDate)}</td>

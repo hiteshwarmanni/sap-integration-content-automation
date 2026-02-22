@@ -112,6 +112,13 @@ async function finalizeJob(options) {
 
     // Write the final audit log with content directly to database
     try {
+        // Format timestamp: Convert YYYY-MM-DD_HH-MM-SS to YYYY-MM-DD HH:MM:SS
+        let timestamp = formattedTimestamp.replace('_', ' ');
+        const parts = timestamp.split(' ');
+        if (parts.length === 2) {
+            timestamp = parts[0] + ' ' + parts[1].replace(/-/g, ':');
+        }
+
         const logId = await db.insertLog({
             projectName: metadata.projectName,
             environment: metadata.environment,
@@ -119,7 +126,7 @@ async function finalizeJob(options) {
             activityType: metadata.activityType,
             logContent: logContent,
             resultContent: resultContent,
-            timestamp: formattedTimestamp.replace('_', ' '),
+            timestamp: timestamp,
             status: finalStatus,
             artifactCount: artifactCount || null,
             parameterCount: parameterCount || null,

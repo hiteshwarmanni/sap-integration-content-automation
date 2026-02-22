@@ -34,6 +34,18 @@ function formatTime(seconds) {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
+// Helper function to format timestamp with timezone
+function formatTimestamp(timestampString) {
+  if (!timestampString) return '-';
+  try {
+    // The timestamp is stored in UTC on the server (as confirmed in server/scheduler.js)
+    // Append UTC timezone to make it clear
+    return `${timestampString} (UTC)`;
+  } catch (e) {
+    return timestampString;
+  }
+}
+
 // Memoized Log Row Component for better performance
 const LogRow = React.memo(({ log, visibleColumns, hasAccess }) => {
   return (
@@ -43,7 +55,7 @@ const LogRow = React.memo(({ log, visibleColumns, hasAccess }) => {
       {visibleColumns.environment && <td>{log.environment}</td>}
       {visibleColumns.userName && <td>{log.userName}</td>}
       {visibleColumns.activityType && <td>{log.activityType}</td>}
-      {visibleColumns.timestamp && <td>{log.timestamp}</td>}
+      {visibleColumns.timestamp && <td>{formatTimestamp(log.timestamp)}</td>}
 
       {visibleColumns.status && (
         <td>
@@ -155,7 +167,7 @@ const LogRow = React.memo(({ log, visibleColumns, hasAccess }) => {
 LogRow.displayName = 'LogRow';
 
 // Main LogsPage component with React.memo for optimization
-const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) => {
+const LogsPage = React.memo(({ logs, error, refreshLogs, refreshCleanupLogs, projects, userInfo }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [projectFilter, setProjectFilter] = useState('');
@@ -163,6 +175,15 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
   const [searchQuery, setSearchQuery] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef(null);
+
+  // Delete modal states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedLogForDeletion, setSelectedLogForDeletion] = useState(null);
+  const [modalSearchQuery, setModalSearchQuery] = useState('');
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [isDeletingContent, setIsDeletingContent] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteSuccess, setDeleteSuccess] = useState('');
 
   // Fetch logs on component mount (lazy loading)
   useEffect(() => {
@@ -332,6 +353,62 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
     };
   }, [showSettings]);
 
+  // Get accessible logs for deletion modal (only logs user has access to)
+  const accessibleLogsForDeletion = useMemo(() => {
+    return logsWithAccess.filter(log => log.hasAccess && (log.logContent || log.resultContent));
+  }, [logsWithAccess]);
+
+  // Filtered accessible logs (with modal search)
+  const filteredAccessibleLogs = useMemo(() => {
+    return accessibleLogsForDeletion.filter(log => {
+      if (!modalSearchQuery) return true;
+      const query = modalSearchQuery.toLowerCase();
+      return (
+        log.projectName?.toLowerCase().includes(query) ||
+        log.environment?.toLowerCase().includes(query) ||
+        log.activityType?.toLowerCase().includes(query) ||
+        log.userName?.toLowerCase().includes(query)
+      );
+    });
+  }, [accessibleLogsForDeletion, modalSearchQuery]);
+
+  // Handle delete content action
+  const handleDeleteContent = async () => {
+    if (!selectedLogForDeletion) return;
+
+    setIsDeletingContent(true);
+    setDeleteError('');
+
+    try {
+      const axios = (await import('axios')).default;
+      const response = await axios.delete(`${API_URL}/api/logs/content`, {
+        data: { logIds: [selectedLogForDeletion.id] }
+      });
+
+      if (response.data.success) {
+        // Close modal
+        setShowDeleteModal(false);
+        setShowDeleteConfirmation(false);
+        setSelectedLogForDeletion(null);
+        setModalSearchQuery('');
+
+        // Show success message
+        setDeleteSuccess('Log content deleted successfully');
+        setTimeout(() => setDeleteSuccess(''), 5000);
+
+        // Refresh both logs and cleanup logs
+        refreshLogs();
+        if (refreshCleanupLogs) {
+          refreshCleanupLogs();
+        }
+      }
+    } catch (err) {
+      setDeleteError(err.response?.data?.error || 'Failed to delete log content');
+    } finally {
+      setIsDeletingContent(false);
+    }
+  };
+
   return (
     <div className="page-content">
       <h2>Execution Logs</h2>
@@ -451,6 +528,42 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
           Clear All Filters
         </button>
 
+        {/* Delete Icon Button */}
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          style={{
+            background: 'none',
+            border: '1px solid #dc3545',
+            borderRadius: '4px',
+            padding: '0.5rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s',
+            marginBottom: '0',
+            height: '38px',
+            width: '38px',
+            color: '#dc3545'
+          }}
+          title="Delete Sensitive Log Content"
+          onMouseOver={(e) => {
+            e.currentTarget.style.backgroundColor = '#dc3545';
+            e.currentTarget.style.color = '#ffffff';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = '#dc3545';
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+        </button>
+
         {/* Settings Icon */}
         <div ref={settingsRef} style={{ position: 'relative' }}>
           <button
@@ -506,7 +619,7 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
                 borderRight: '8px solid transparent',
                 borderBottom: '8px solid #ffffff',
                 filter: 'drop-shadow(0 -2px 2px rgba(0, 0, 0, 0.1))'
-              }}></div>
+              }}></div> 
 
               <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1rem', color: '#005fbc' }}>
                 Column Visibility
@@ -601,6 +714,411 @@ const LogsPage = React.memo(({ logs, error, refreshLogs, projects, userInfo }) =
           onItemsPerPageChange={handleItemsPerPageChange}
         />
       )}
+
+      {/* Success Message */}
+      {deleteSuccess && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '20px',
+          background: '#d4edda',
+          border: '1px solid #28a745',
+          color: '#155724',
+          padding: '1rem 1.5rem',
+          borderRadius: '6px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          zIndex: 10000,
+          maxWidth: '400px'
+        }}>
+          ✓ {deleteSuccess}
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '8px',
+            maxWidth: '700px',
+            width: '100%',
+            maxHeight: '80vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.5rem',
+              borderBottom: '1px solid #e0e0e0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h3 style={{ margin: 0, color: '#005fbc', fontSize: '1.25rem' }}>
+                Delete Sensitive Log Content
+              </h3>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSelectedLogForDeletion(null);
+                  setModalSearchQuery('');
+                  setDeleteError('');
+                  setShowDeleteConfirmation(false);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#666',
+                  padding: '0',
+                  width: '30px',
+                  height: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '4px'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                ×
+              </button>
+            </div>
+
+            {!showDeleteConfirmation ? (
+              <>
+                {/* Modal Content - Log Selection */}
+                <div style={{ padding: '1.5rem', flex: 1 }}>
+                  <p style={{ marginTop: 0, marginBottom: '1rem', color: '#555' }}>
+                    Select a log to permanently delete its sensitive content:
+                  </p>
+
+                  {/* Search within modal */}
+                  <div className="search-input-wrapper" style={{ marginBottom: '1rem' }}>
+                    <svg
+                      className="search-icon"
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input
+                      type="text"
+                      className="search-input"
+                      placeholder="Search logs..."
+                      value={modalSearchQuery}
+                      onChange={(e) => setModalSearchQuery(e.target.value)}
+                      style={{ paddingLeft: '2.5rem' }}
+                    />
+                  </div>
+
+                  {deleteError && (
+                    <div style={{
+                      padding: '0.75rem',
+                      marginBottom: '1rem',
+                      background: '#fee',
+                      border: '1px solid #fcc',
+                      borderRadius: '4px',
+                      color: '#c00'
+                    }}>
+                      {deleteError}
+                    </div>
+                  )}
+
+                  {/* Log List */}
+                  <div style={{
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '4px',
+                    maxHeight: '350px',
+                    overflowY: 'auto'
+                  }}>
+                    {filteredAccessibleLogs.length === 0 ? (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+                        {accessibleLogsForDeletion.length === 0 ? (
+                          <>
+                            <p>No logs available for deletion.</p>
+                            <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                              You don't have access to any logs or there are no logs with content.
+                            </p>
+                          </>
+                        ) : (
+                          <p>No logs match your search.</p>
+                        )}
+                      </div>
+                    ) : (
+                      filteredAccessibleLogs.map((log) => (
+                        <div
+                          key={log.id}
+                          onClick={() => setSelectedLogForDeletion(log)}
+                          style={{
+                            padding: '1rem',
+                            borderBottom: '1px solid #f0f0f0',
+                            cursor: 'pointer',
+                            background: selectedLogForDeletion?.id === log.id ? '#e7f3ff' : 'transparent',
+                            borderLeft: selectedLogForDeletion?.id === log.id ? '3px solid #005fbc' : '3px solid transparent',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseOver={(e) => {
+                            if (selectedLogForDeletion?.id !== log.id) {
+                              e.currentTarget.style.backgroundColor = '#f5f7f9';
+                            }
+                          }}
+                          onMouseOut={(e) => {
+                            if (selectedLogForDeletion?.id !== log.id) {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                            <input
+                              type="radio"
+                              checked={selectedLogForDeletion?.id === log.id}
+                              onChange={() => setSelectedLogForDeletion(log)}
+                              style={{ marginTop: '0.2rem', cursor: 'pointer' }}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: '600', color: '#333', marginBottom: '0.25rem' }}>
+                                {log.projectName} / {log.environment} / {log.activityType}
+                              </div>
+                              <div style={{ fontSize: '0.85rem', color: '#666', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                <span>📅 {log.timestamp}</span>
+                                <span className={`status-badge status-${log.status?.toLowerCase()}`} style={{ fontSize: '0.75rem' }}>
+                                  {log.status}
+                                </span>
+                                {log.artifactCount && <span>📦 {log.artifactCount}</span>}
+                                {log.userName && <span>👤 {log.userName}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {filteredAccessibleLogs.length > 0 && (
+                    <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#666' }}>
+                      Showing {filteredAccessibleLogs.length} log{filteredAccessibleLogs.length !== 1 ? 's' : ''} you have access to
+                      {selectedLogForDeletion && <span style={{ fontWeight: '600', color: '#005fbc' }}> • Selected: 1 log</span>}
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div style={{
+                  padding: '1.5rem',
+                  borderTop: '1px solid #e0e0e0',
+                  display: 'flex',
+                  gap: '1rem',
+                  justifyContent: 'flex-end'
+                }}>
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setSelectedLogForDeletion(null);
+                      setModalSearchQuery('');
+                      setDeleteError('');
+                    }}
+                    style={{
+                      padding: '0.6rem 1.5rem',
+                      border: '1px solid #d1dadd',
+                      background: 'white',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.95rem'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirmation(true)}
+                    disabled={!selectedLogForDeletion}
+                    className="btn-primary"
+                    style={{
+                      padding: '0.6rem 1rem',
+                      backgroundColor: '#dc3545',
+                      opacity: !selectedLogForDeletion ? 0.5 : 1,
+                      cursor: !selectedLogForDeletion ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    Delete Content
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Confirmation View */}
+                <div style={{ padding: '1.5rem', flex: 1 }}>
+                  <div style={{
+                    padding: '1rem',
+                    background: '#fff3cd',
+                    border: '1px solid #ffc107',
+                    borderRadius: '6px',
+                    marginBottom: '1rem'
+                  }}>
+                    <div style={{ display: 'flex', gap: '0.rem', alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                      <div>
+                        <h4 style={{ margin: 0, color: '#856404' }}>Confirm Deletion</h4>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p style={{ marginBottom: '1rem', color: '#555', fontWeight: '600' }}>
+                    You are about to permanently delete content from:
+                  </p>
+
+                  {selectedLogForDeletion && (
+                    <div style={{
+                      background: '#f5f7f9',
+                      border: '1px solid #d1dadd',
+                      borderRadius: '6px',
+                      padding: '1rem',
+                      marginBottom: '1rem'
+                    }}>
+                      <div style={{ display: 'grid', gap: '0.75rem', fontSize: '0.95rem' }}>
+                        <div><strong>📋 Project:</strong> {selectedLogForDeletion.projectName}</div>
+                        <div><strong>🌍 Environment:</strong> {selectedLogForDeletion.environment}</div>
+                        <div><strong>⚡ Activity:</strong> {selectedLogForDeletion.activityType}</div>
+                        <div><strong>📅 Date:</strong> {selectedLogForDeletion.timestamp}</div>
+                        <div><strong>👤 User:</strong> {selectedLogForDeletion.userName}</div>
+                        <div><strong>📊 Status:</strong> <span className={`status-badge status-${selectedLogForDeletion.status?.toLowerCase()}`}>{selectedLogForDeletion.status}</span></div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{
+                    background: '#fee',
+                    border: '1px solid #fcc',
+                    borderRadius: '6px',
+                    padding: '1rem',
+                    fontSize: '0.9rem'
+                  }}>
+                    <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600', color: '#c00' }}>
+                      ⚠️ This will permanently delete:
+                    </p>
+                    <ul style={{ margin: '0', paddingLeft: '1.5rem', color: '#c00' }}>
+                      <li>Log file content (cannot download log)</li>
+                      <li>Result file content (cannot download results)</li>
+                    </ul>
+                  </div>
+
+                  <div style={{
+                    marginTop: '1rem',
+                    padding: '0.75rem',
+                    background: '#e7f3ff',
+                    border: '1px solid #005fbc',
+                    borderRadius: '6px',
+                    fontSize: '0.9rem',
+                    color: '#333'
+                  }}>
+                    ℹ️ Make sure you have downloaded any necessary information before confirming.
+                  </div>
+
+                  {deleteError && (
+                    <div style={{
+                      marginTop: '1rem',
+                      padding: '0.75rem',
+                      background: '#fee',
+                      border: '1px solid #fcc',
+                      borderRadius: '4px',
+                      color: '#c00'
+                    }}>
+                      {deleteError}
+                    </div>
+                  )}
+
+                  {/* Buttons inside the dialog content */}
+                  <div style={{
+                    marginTop: '1.5rem',
+                    display: 'flex',
+                    gap: '1rem',
+                    justifyContent: 'flex-end'
+                  }}>
+                    <button
+                      onClick={() => {
+                        setShowDeleteConfirmation(false);
+                        setDeleteError('');
+                      }}
+                      disabled={isDeletingContent}
+                      style={{
+                        padding: '0.6rem 1.5rem',
+                        border: '1px solid #d1dadd',
+                        background: 'white',
+                        borderRadius: '4px',
+                        cursor: isDeletingContent ? 'not-allowed' : 'pointer',
+                        fontSize: '0.95rem',
+                        opacity: isDeletingContent ? 0.5 : 1
+                      }}
+                    >
+                      Go Back
+                    </button>
+                    <button
+                      onClick={handleDeleteContent}
+                      disabled={isDeletingContent}
+                      className="btn-primary"
+                      style={{
+                        padding: '0.6rem 1.5rem',
+                        backgroundColor: '#dc3545',
+                        cursor: isDeletingContent ? 'not-allowed' : 'pointer',
+                        opacity: isDeletingContent ? 0.7 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}
+                    >
+                      {isDeletingContent ? (
+                        <>
+                          <span style={{
+                            display: 'inline-block',
+                            width: '16px',
+                            height: '16px',
+                            border: '2px solid #fff',
+                            borderTopColor: 'transparent',
+                            borderRadius: '50%',
+                            animation: 'spin 0.6s linear infinite'
+                          }}></span>
+                          Deleting...
+                        </>
+                      ) : (
+                        'Yes, Delete Content'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 });

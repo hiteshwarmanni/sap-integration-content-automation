@@ -380,7 +380,7 @@ function App() {
                   element={<DeployPage isJobRunning={isJobRunning} setIsJobRunning={setIsJobRunning} refreshLogs={refreshLogs} projects={projects} />}
                 />
 
-                <Route path="/logs" element={<LogsPage logs={logs} error={logsError} refreshLogs={refreshLogs} projects={projects} userInfo={userInfo} />} />
+                <Route path="/logs" element={<LogsPage logs={logs} error={logsError} refreshLogs={refreshLogs} refreshCleanupLogs={refreshCleanupLogs} projects={projects} userInfo={userInfo} />} />
                 <Route path="/projects" element={<ProjectMasterPage projects={projects} error={projectsError} refreshProjects={refreshProjects} refreshCleanupLogs={refreshCleanupLogs} />} />
 
                 {/* --- Cleanup Logs Route (Admin Only) --- */}
