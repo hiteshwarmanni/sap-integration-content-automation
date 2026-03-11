@@ -8,6 +8,8 @@ const uploadRoutes = require('./upload.routes');
 const deployRoutes = require('./deploy.routes');
 const projectRoutes = require('./projects.routes');
 const cleanupRoutes = require('./cleanup.routes');
+const { router: transportRouter } = require('./transport.routes');
+const transportLogsRoutes = require('./transport-logs.routes');
 
 function defineRoutes(app) {
     // Auth routes - /api/user-info, /logout
@@ -25,6 +27,12 @@ function defineRoutes(app) {
 
     // Deploy routes - /api/v1/run-deploy, /api/v1/deploy-job-status/:id, etc.
     app.use('/api/v1', deployRoutes);
+
+    // Transport routes - /api/v1/transport-iflow, /api/v1/get-iflow-details, etc.
+    app.use('/api/v1', transportRouter);
+
+    // Transport logs routes - /api/transport-logs, /api/transport-logs/export, etc.
+    app.use('/api/transport-logs', transportLogsRoutes);
 
     // Project routes - /api/projects, /api/projects/:id, etc.
     app.use('/api/projects', projectRoutes);

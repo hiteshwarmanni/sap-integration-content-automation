@@ -43,10 +43,11 @@ async function getPackageDetails(jobDataJson) {
             throw new Error('Unable to parse packages from API response. Check API URL and credentials.');
         }
 
-        // Return simplified package list with Id and Name
+        // Return simplified package list with Id, Name, and Version
         return allPackages.map(pkg => ({
             id: pkg.Id,
-            name: pkg.Name
+            name: pkg.Name,
+            version: pkg.Version
         }));
     } catch (error) {
         const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;

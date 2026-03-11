@@ -15,6 +15,7 @@ import ProjectMasterPage from './pages/ProjectMasterPage';
 const DownloadPage = lazy(() => import('./pages/DownloadPage'));
 const UploadPage = lazy(() => import('./pages/UploadPage'));
 const DeployPage = lazy(() => import('./pages/DeployPage'));
+const InTenantTransportPage = lazy(() => import('./pages/InTenantTransportPage'));
 const LogsPage = lazy(() => import('./pages/LogsPage'));
 const CleanupLogsPage = lazy(() => import('./pages/CleanupLogsPage'));
 
@@ -58,6 +59,8 @@ function App() {
   const [projectsError, setProjectsError] = useState('');
   const [cleanupLogs, setCleanupLogs] = useState([]);
   const [cleanupLogsError, setCleanupLogsError] = useState('');
+  const [transportLogs, setTransportLogs] = useState([]);
+  const [transportLogsError, setTransportLogsError] = useState('');
   const [darkMode, setDarkMode] = useState(() => {
     // Initialize dark mode from localStorage or default to false
     const saved = localStorage.getItem('darkMode');
@@ -92,6 +95,19 @@ function App() {
       setProjectsError('');
     } catch (err) {
       setProjectsError('Failed to fetch projects');
+      console.error(err);
+    }
+  };
+
+  // Fetch transport logs (called when transport tab is opened or a transport completes)
+  const refreshTransportLogs = async () => {
+    try {
+      const { data } = await axios.get(`${API_URL}/api/transport-logs`);
+      const sorted = data.sort((a, b) => b.id - a.id);
+      setTransportLogs(sorted);
+      setTransportLogsError('');
+    } catch (err) {
+      setTransportLogsError('Failed to fetch transport logs');
       console.error(err);
     }
   };
@@ -160,7 +176,7 @@ function App() {
     } catch (error) {
       console.error('Error during logout:', error);
     }
-  // Redirect to logout endpoint (approuter handles XSUAA logout)
+    // Redirect to logout endpoint (approuter handles XSUAA logout)
     window.location.href = `${API_URL}/logout`;
   };
 
@@ -306,6 +322,7 @@ function App() {
               </span>
               <span className="nav-text">Download Config</span>
             </NavLink>
+
             <NavLink to="/upload" onClick={handleNavClick}>
               <span className="nav-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
@@ -329,7 +346,18 @@ function App() {
               <span className="nav-text">Deploy/Undeploy</span>
             </NavLink>
 
-            {/* --- 👇 NEW LOGS LINK --- */}
+            <NavLink to="/transport" onClick={handleNavClick}>
+              <span className="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
+                  <polyline points="17 1 21 5 17 9"></polyline>
+                  <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                  <polyline points="7 23 3 19 7 15"></polyline>
+                  <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                </svg>
+              </span>
+              <span className="nav-text">In-Tenant Transport</span>
+            </NavLink>
+
             <NavLink to="/logs" onClick={handleNavClick}>
               <span className="nav-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
@@ -379,8 +407,12 @@ function App() {
                   path="/deploy"
                   element={<DeployPage isJobRunning={isJobRunning} setIsJobRunning={setIsJobRunning} refreshLogs={refreshLogs} projects={projects} />}
                 />
+                <Route
+                  path="/transport"
+                  element={<InTenantTransportPage projects={projects} refreshTransportLogs={refreshTransportLogs} />}
+                />
 
-                <Route path="/logs" element={<LogsPage logs={logs} error={logsError} refreshLogs={refreshLogs} refreshCleanupLogs={refreshCleanupLogs} projects={projects} userInfo={userInfo} />} />
+                <Route path="/logs" element={<LogsPage logs={logs} error={logsError} refreshLogs={refreshLogs} refreshCleanupLogs={refreshCleanupLogs} projects={projects} userInfo={userInfo} transportLogs={transportLogs} transportLogsError={transportLogsError} refreshTransportLogs={refreshTransportLogs} />} />
                 <Route path="/projects" element={<ProjectMasterPage projects={projects} error={projectsError} refreshProjects={refreshProjects} refreshCleanupLogs={refreshCleanupLogs} />} />
 
                 {/* --- Cleanup Logs Route (Admin Only) --- */}

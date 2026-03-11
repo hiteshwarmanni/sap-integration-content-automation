@@ -31,6 +31,15 @@ const DEPLOY_CSV_HEADERS = [
     "ResponseMessage"
 ];
 
+const TRANSPORT_CSV_HEADERS = [
+    "SourcePackageId",
+    "TargetPackageId",
+    "SourceIflowId",
+    "TargetIflowId",
+    "StatusCode",
+    "Status"
+];
+
 // Default version for artifacts
 const DEFAULT_VERSION = 'active';
 
@@ -51,6 +60,7 @@ module.exports = {
     DOWNLOAD_CSV_HEADERS,
     UPLOAD_CSV_HEADERS,
     DEPLOY_CSV_HEADERS,
+    TRANSPORT_CSV_HEADERS,
     DEFAULT_VERSION,
     ARTIFACT_TYPES,
     OPERATIONS

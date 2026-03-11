@@ -1,14 +1,15 @@
 # sap-integration-content-automation
 
+# For Server in Terminal 1
+# cd server
+# node server.js
 
-# For Front End 
+# For Front End in Terminal 2
 # cd client
 # npm run dev   
 
 
-# For Server
-# cd server
-# node server.js
+
 # ******************** CF Login **************************
 
 # cf login -a https://api.cf.eu10-004.hana.ondemand.com

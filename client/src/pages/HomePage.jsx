@@ -110,7 +110,74 @@ function HomePage() {
         <p>Including <code>PackageName</code>, <code>IflowName</code>, and <code>DataType</code> is also recommended, as they are used for the final results log.</p>
       </div>
 
-      {/* --- Card 4: Deploy Artifacts Guide --- */}
+      {/* --- Card 4: In-Tenant Transport Guide --- */}
+      <div className="info-card">
+        <h3>In-Tenant Transport Guide</h3>
+        <p>
+          The <strong>In-Tenant Transport</strong> feature allows you to copy integration content (iFlows or entire packages) between packages <em>within the same CPI tenant</em> — without needing a separate transport landscape.
+        </p>
+
+        <h4 style={{ marginTop: '1.5rem', marginBottom: '0.5rem', color: '#0070f3' }}>Transport Modes:</h4>
+        <ul className="info-list">
+          <li>
+            <strong>Transport iFlow</strong>
+            <p>
+              Copies a single iFlow from a source package to a target package on the same tenant. You select the source package, source iFlow, target package, and target iFlow independently. The tool performs a real-time <strong>similarity check</strong> (Levenshtein distance ≥ 85%) on the iFlow IDs — if they differ significantly, a warning is shown before proceeding.
+            </p>
+          </li>
+          <li>
+            <strong>Transport Package</strong>
+            <p>
+              Copies an <strong>entire package</strong> (all iFlows inside it) to a new package created by appending a suffix to the source package ID. For example, source package <code>MyPackage</code> with suffix <code>.dev</code> creates <code>MyPackage.dev</code>. The tool performs a real-time <strong>package existence check</strong> — if the target package already exists, the submit button is disabled and you are prompted to use "Transport iFlow" mode instead.
+            </p>
+          </li>
+        </ul>
+
+        <h4 style={{ marginTop: '1.5rem', marginBottom: '0.5rem', color: '#0070f3' }}>How to Use:</h4>
+        <ol className="info-list">
+          <li>
+            <strong>Select Transport Mode</strong>
+            <p>Choose <em>Transport iFlow</em> or <em>Transport Package</em> from the segmented control at the top of the page.</p>
+          </li>
+          <li>
+            <strong>Select a Project</strong>
+            <p>Pick the project containing the CPI tenant credentials. Packages are loaded automatically from the tenant after selection.</p>
+          </li>
+          <li>
+            <strong>Configure Source & Target</strong>
+            <p>
+              For <em>iFlow mode</em>: select source package → source iFlow → target package → target iFlow. The similarity panel updates in real time.<br />
+              For <em>Package mode</em>: select the source package and enter a suffix (e.g., <code>.dev</code>, <code>.qas</code>, <code>-test</code>). The target package ID is shown live and its existence is checked automatically.
+            </p>
+          </li>
+          <li>
+            <strong>Submit</strong>
+            <p>Click <em>Transport iFlow</em> or <em>Transport Package</em>. Package transport runs as a background job with real-time progress updates.</p>
+          </li>
+          <li>
+            <strong>Review Logs</strong>
+            <p>All transport operations are logged. Navigate to <strong>Logs → Transport Logs</strong> to view the full history and status of each transport.</p>
+          </li>
+        </ol>
+
+        <h4 style={{ marginTop: '1.5rem', marginBottom: '0.5rem', color: '#ff9800' }}>Important Notes:</h4>
+        <ul className="info-list">
+          <li>
+            <p>This feature operates <strong>within the same tenant</strong> — source and target are on the same CPI system.</p>
+          </li>
+          <li>
+            <p>⚠️ <strong>Transport iFlow</strong> overwrites the target iFlow's content. A warning modal is shown if the source and target iFlow IDs are less than 85% similar.</p>
+          </li>
+          <li>
+            <p>⚠️ <strong>Transport Package</strong> is disabled if the target package already exists. Use <em>Transport iFlow</em> mode to update individual iFlows in an existing package.</p>
+          </li>
+          <li>
+            <p>The suffix for package transport must start with <code>.</code>, <code>_</code>, or <code>-</code> (e.g., <code>.dev</code>, <code>_QAS</code>, <code>-test</code>).</p>
+          </li>
+        </ul>
+      </div>
+
+      {/* --- Card 5: Deploy Artifacts Guide --- */}
       <div className="info-card">
         <h3>Deploy Artifacts Guide</h3>
         <p>

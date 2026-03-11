@@ -156,9 +156,64 @@ async function setupDatabase() {
       table.integer('durationSeconds');
       table.timestamp('cutoffDate');
       table.string('errorMessage', 1000);
+      table.string('executedBy', 200);
       table.timestamp('createdAt').defaultTo(knex.fn.now());
     });
     logInfo("Database initialized", { table: 'cleanup_logs' });
+  } else {
+    // Migration: add executedBy column if it doesn't exist (for existing databases)
+    const executedByExists = await knex.schema.hasColumn('cleanup_logs', 'executedBy');
+    if (!executedByExists) {
+      await knex.schema.alterTable('cleanup_logs', (table) => {
+        table.string('executedBy', 200);
+      });
+      logInfo("Database migrated", { table: 'cleanup_logs', addedColumn: 'executedBy' });
+    }
+  }
+
+  // --- 6. Create the 'transport_jobs' table ---
+  const transportJobsTableExists = await knex.schema.hasTable('transport_jobs');
+  if (!transportJobsTableExists) {
+    await knex.schema.createTable('transport_jobs', (table) => {
+      table.increments('id').primary();
+      table.string('status');
+      table.integer('progress');
+      table.integer('total');
+      table.text('form_data_json');
+      table.string('result_file_path');
+      table.string('progress_message');
+      table.integer('log_id');
+      table.timestamp('created_at').defaultTo(knex.fn.now());
+    });
+    logInfo("Database initialized", { table: 'transport_jobs' });
+  }
+
+  // --- 7. Create the 'transport_logs' table ---
+  const transportLogsTableExists = await knex.schema.hasTable('transport_logs');
+  if (!transportLogsTableExists) {
+    await knex.schema.createTable('transport_logs', (table) => {
+      table.increments('id').primary();
+      table.string('projectName');
+      table.string('environment');
+      table.string('userName');
+      table.string('timestamp');
+      table.string('status');
+      table.string('sourcePackageId');
+      table.string('sourceIflowId');
+      table.string('sourceIflowName');
+      table.string('targetPackageId');
+      table.string('targetIflowId');
+      table.string('targetIflowName');
+      table.integer('timeTakenSeconds');
+      table.text('errorMessage');
+      table.text('errorDetails');
+      table.text('failedStep');
+      table.text('errorStackTrace');
+      table.text('logContent');
+      table.text('resultContent');
+      table.timestamp('createdAt').defaultTo(knex.fn.now());
+    });
+    logInfo("Database initialized", { table: 'transport_logs' });
   }
 
 }

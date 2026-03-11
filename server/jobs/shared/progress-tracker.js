@@ -15,6 +15,8 @@ async function updateProgress(jobId, jobType, progress, total) {
     if (progress % 5 === 0 || progress === total) {
         if (jobType === 'download') {
             await db.updateDownloadJob(jobId, { progress });
+        } else if (jobType === 'transport') {
+            await db.updateTransportJob(jobId, { progress });
         } else {
             // upload and deploy jobs use the same table
             await db.updateUploadJob(jobId, { progress });
@@ -32,6 +34,8 @@ async function updateProgress(jobId, jobType, progress, total) {
 async function setTotal(jobId, jobType, total) {
     if (jobType === 'download') {
         await db.updateDownloadJob(jobId, { total });
+    } else if (jobType === 'transport') {
+        await db.updateTransportJob(jobId, { total });
     } else {
         await db.updateUploadJob(jobId, { total });
     }
@@ -47,6 +51,8 @@ async function setTotal(jobId, jobType, total) {
 async function updateStatus(jobId, jobType, status) {
     if (jobType === 'download') {
         await db.updateDownloadJob(jobId, { status });
+    } else if (jobType === 'transport') {
+        await db.updateTransportJob(jobId, { status });
     } else {
         await db.updateUploadJob(jobId, { status });
     }

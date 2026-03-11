@@ -183,8 +183,8 @@ function SearchableDropdown({
   );
 }
 
-// --- Transport Page with Mode Selection ---
-function TransportPage({ projects: projectsProp, refreshTransportLogs }) {
+// --- In-Tenant Transport Page with Mode Selection ---
+function InTenantTransportPage({ projects: projectsProp, refreshTransportLogs }) {
   // Transport mode state
   const [transportMode, setTransportMode] = useState('iflow'); // 'iflow' or 'package'
   
@@ -511,14 +511,12 @@ function TransportPage({ projects: projectsProp, refreshTransportLogs }) {
       const project = projects.find(p => p.id === parseInt(selectedProjectId));
       if (!project) return;
 
-      const { data } = await axios.get(`${API_URL}/api/v1/get-iflow-details`, {
-        params: {
-          cpiBaseUrl: project.cpiBaseUrl,
-          tokenUrl: project.tokenUrl,
-          clientId: project.clientId,
-          clientSecret: project.clientSecret,
-          packageId: packageId
-        }
+      const { data } = await axios.post(`${API_URL}/api/v1/get-iflow-details`, {
+        cpiBaseUrl: project.cpiBaseUrl,
+        tokenUrl: project.tokenUrl,
+        clientId: project.clientId,
+        clientSecret: project.clientSecret,
+        packageId: packageId
       });
 
       if (isSource) {
@@ -784,7 +782,7 @@ function TransportPage({ projects: projectsProp, refreshTransportLogs }) {
 
   return (
     <div className="page-content">
-      <h2>Transport Integration Content</h2>
+      <h2>In-Tenant Transport Integration Content</h2>
 
       {/* Warning Modal for iFlow Mismatch */}
       {showWarningModal && warningDetails && (
@@ -1848,4 +1846,4 @@ function TransportPage({ projects: projectsProp, refreshTransportLogs }) {
   );
 }
 
-export default TransportPage;
+export default InTenantTransportPage;

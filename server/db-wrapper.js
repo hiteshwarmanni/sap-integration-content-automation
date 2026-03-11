@@ -592,6 +592,172 @@ const db = {
                 createdAt: log.CREATED_AT
             };
         }
+    },
+
+    // ========== TRANSPORT JOB OPERATIONS ==========
+
+    async insertTransportJob(data) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            const [result] = await knex('transport_jobs').insert(data).returning('id');
+            return result.id || result[0]?.id || result[0];
+        } else {
+            return await dbModule.insertAndReturnId('TRANSPORT_JOBS', {
+                STATUS: data.status,
+                PROGRESS: data.progress,
+                TOTAL: data.total,
+                FORM_DATA_JSON: data.form_data_json,
+                RESULT_FILE_PATH: data.result_file_path || null,
+                PROGRESS_MESSAGE: data.progress_message || null,
+                LOG_ID: data.log_id || null
+            });
+        }
+    },
+
+    async getTransportJobById(id) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            return await knex('transport_jobs').where({ id }).first();
+        } else {
+            const jobs = await dbModule.selectRecords('TRANSPORT_JOBS', '"ID" = ?', [id]);
+            if (jobs.length === 0) return null;
+            const job = jobs[0];
+            return {
+                id: job.ID,
+                status: job.STATUS,
+                progress: job.PROGRESS,
+                total: job.TOTAL,
+                form_data_json: job.FORM_DATA_JSON,
+                result_file_path: job.RESULT_FILE_PATH,
+                progress_message: job.PROGRESS_MESSAGE,
+                log_id: job.LOG_ID,
+                created_at: job.CREATED_AT
+            };
+        }
+    },
+
+    async updateTransportJob(id, data) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            return await knex('transport_jobs').where({ id }).update(data);
+        } else {
+            const updateData = {};
+            if (data.status !== undefined) updateData.STATUS = data.status;
+            if (data.progress !== undefined) updateData.PROGRESS = data.progress;
+            if (data.total !== undefined) updateData.TOTAL = data.total;
+            if (data.result_file_path !== undefined) updateData.RESULT_FILE_PATH = data.result_file_path;
+            if (data.progress_message !== undefined) updateData.PROGRESS_MESSAGE = data.progress_message;
+            if (data.log_id !== undefined) updateData.LOG_ID = data.log_id;
+            return await dbModule.updateRecords('TRANSPORT_JOBS', updateData, '"ID" = ?', [id]);
+        }
+    },
+
+    // ========== TRANSPORT LOG OPERATIONS ==========
+
+    // Insert a transport log entry
+    async insertTransportLog(data) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            const [result] = await knex('transport_logs').insert(data).returning('id');
+            return result.id || result[0]?.id || result[0];
+        } else {
+            return await dbModule.insertAndReturnId('TRANSPORT_LOGS', {
+                PROJECT_NAME: data.projectName,
+                ENVIRONMENT: data.environment,
+                USER_NAME: data.userName,
+                TIMESTAMP: data.timestamp,
+                STATUS: data.status,
+                SOURCE_PACKAGE_ID: data.sourcePackageId,
+                SOURCE_IFLOW_ID: data.sourceIflowId,
+                SOURCE_IFLOW_NAME: data.sourceIflowName,
+                TARGET_PACKAGE_ID: data.targetPackageId,
+                TARGET_IFLOW_ID: data.targetIflowId,
+                TARGET_IFLOW_NAME: data.targetIflowName,
+                TIME_TAKEN_SECONDS: data.timeTakenSeconds || null,
+                ERROR_MESSAGE: data.errorMessage || null,
+                ERROR_DETAILS: data.errorDetails || null,
+                FAILED_STEP: data.failedStep || null,
+                ERROR_STACK_TRACE: data.errorStackTrace || null,
+                LOG_CONTENT: data.logContent || null,
+                RESULT_CONTENT: data.resultContent || null
+            });
+        }
+    },
+
+    // Get all transport logs
+    async getAllTransportLogs() {
+        if (isLocal) {
+            const { knex } = dbModule;
+            return await knex('transport_logs').select('*').orderBy('id', 'desc');
+        } else {
+            const logs = await dbModule.selectRecords('TRANSPORT_LOGS', '', [], '*');
+            return logs.map(log => ({
+                id: log.ID,
+                projectName: log.PROJECT_NAME,
+                environment: log.ENVIRONMENT,
+                userName: log.USER_NAME,
+                timestamp: log.TIMESTAMP,
+                status: log.STATUS,
+                sourcePackageId: log.SOURCE_PACKAGE_ID,
+                sourceIflowId: log.SOURCE_IFLOW_ID,
+                sourceIflowName: log.SOURCE_IFLOW_NAME,
+                targetPackageId: log.TARGET_PACKAGE_ID,
+                targetIflowId: log.TARGET_IFLOW_ID,
+                targetIflowName: log.TARGET_IFLOW_NAME,
+                timeTakenSeconds: log.TIME_TAKEN_SECONDS,
+                errorMessage: log.ERROR_MESSAGE,
+                errorDetails: log.ERROR_DETAILS,
+                failedStep: log.FAILED_STEP,
+                errorStackTrace: log.ERROR_STACK_TRACE,
+                logContent: log.LOG_CONTENT,
+                resultContent: log.RESULT_CONTENT,
+                createdAt: log.CREATED_AT
+            }));
+        }
+    },
+
+    // Get a specific transport log by ID
+    async getTransportLogById(id) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            return await knex('transport_logs').where({ id }).first();
+        } else {
+            const logs = await dbModule.selectRecords('TRANSPORT_LOGS', '"ID" = ?', [id]);
+            if (logs.length === 0) return null;
+            const log = logs[0];
+            return {
+                id: log.ID,
+                projectName: log.PROJECT_NAME,
+                environment: log.ENVIRONMENT,
+                userName: log.USER_NAME,
+                timestamp: log.TIMESTAMP,
+                status: log.STATUS,
+                sourcePackageId: log.SOURCE_PACKAGE_ID,
+                sourceIflowId: log.SOURCE_IFLOW_ID,
+                sourceIflowName: log.SOURCE_IFLOW_NAME,
+                targetPackageId: log.TARGET_PACKAGE_ID,
+                targetIflowId: log.TARGET_IFLOW_ID,
+                targetIflowName: log.TARGET_IFLOW_NAME,
+                timeTakenSeconds: log.TIME_TAKEN_SECONDS,
+                errorMessage: log.ERROR_MESSAGE,
+                errorDetails: log.ERROR_DETAILS,
+                failedStep: log.FAILED_STEP,
+                errorStackTrace: log.ERROR_STACK_TRACE,
+                logContent: log.LOG_CONTENT,
+                resultContent: log.RESULT_CONTENT,
+                createdAt: log.CREATED_AT
+            };
+        }
+    },
+
+    // Delete a specific transport log by ID
+    async deleteTransportLog(id) {
+        if (isLocal) {
+            const { knex } = dbModule;
+            return await knex('transport_logs').where({ id }).delete();
+        } else {
+            return await dbModule.deleteRecords('TRANSPORT_LOGS', '"ID" = ?', [id]);
+        }
     }
 };
 

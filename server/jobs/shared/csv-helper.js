@@ -75,7 +75,33 @@ function parseUploadCSV(filePath, logger) {
     return rows;
 }
 
+/**
+ * Converts an array of objects to a CSV string
+ * @param {Array<Object>} rows - Array of data objects
+ * @param {Array<string>} headers - Ordered list of field names to include as columns
+ * @returns {string} CSV-formatted string with header row + data rows
+ */
+function convertToCSV(rows, headers) {
+    const escapeValue = (val) => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        // Wrap in quotes if value contains comma, double-quote, or newline
+        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    };
+
+    const headerRow = headers.join(',');
+    const dataRows = rows.map(row =>
+        headers.map(h => escapeValue(row[h])).join(',')
+    );
+
+    return [headerRow, ...dataRows].join('\n');
+}
+
 module.exports = {
     parseDeploy_UndeployCSVFile,
-    parseUploadCSV
+    parseUploadCSV,
+    convertToCSV
 };

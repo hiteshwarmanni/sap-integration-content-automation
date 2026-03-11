@@ -386,8 +386,8 @@ router.delete('/:id', authenticate, async (req, res) => {
                 cutoffDate: deletionTimestamp,
                 errorMessage: null
             });
-        } catch (logError) {
-            logError('Failed to log project deletion in CLEANUP_LOGS', logErr);
+        } catch (cleanupLogErr) {
+            logError('Failed to log project deletion in CLEANUP_LOGS', cleanupLogErr);
         }
 
         logInfo('Project deleted', {
@@ -413,8 +413,8 @@ router.delete('/:id', authenticate, async (req, res) => {
                 cutoffDate: deletionTimestamp,
                 errorMessage: error.message
             });
-        } catch (logError) {
-            logError('Failed to log project deletion error in CLEANUP_LOGS', logError);
+        } catch (cleanupLogErr) {
+            logError('Failed to log project deletion error in CLEANUP_LOGS', cleanupLogErr);
         }
 
         logError(`Error deleting project ${req.params.id}`, error);

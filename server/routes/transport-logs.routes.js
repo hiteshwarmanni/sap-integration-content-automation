@@ -3,7 +3,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db-wrapper.js');
 const { logInfo, logError } = require('../cloud-logger.js');
-const { checkLogFileAccess } = require('../middleware/project-access.js');
 const { authenticate, checkScope } = require('../auth-middleware.js');
 const { convertToCSV } = require('../jobs/shared/csv-helper.js');
 
@@ -11,7 +10,7 @@ const { convertToCSV } = require('../jobs/shared/csv-helper.js');
  * GET /api/transport-logs
  * Retrieve all transport logs
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
     try {
         const logs = await db.getAllTransportLogs();
         logInfo('Transport logs fetched successfully', { count: logs.length });
@@ -26,7 +25,7 @@ router.get('/', async (req, res) => {
  * GET /api/transport-logs/:id
  * Retrieve a specific transport log by ID
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const log = await db.getTransportLogById(id);

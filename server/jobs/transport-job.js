@@ -6,17 +6,8 @@ const { logJobExecution, logInfo, logError } = require('../cloud-logger.js');
 const { getOAuthToken, getCSRFToken } = require('./shared/auth-helper.js');
 const { createJobLogger, createResultsStream } = require('./shared/logger-helper.js');
 const { updateProgress, setTotal, updateStatus } = require('./shared/progress-tracker.js');
-const { finalizeJob } = require('./shared/job-finalizer.js');
 const { TRANSPORT_CSV_HEADERS } = require('./constants.js');
-const fs = require('fs').promises;
-const path = require('path');
-const zlib = require('zlib');
-const { promisify } = require('util');
 const AdmZip = require('adm-zip');
-
-// Promisify zlib functions
-const gzip = promisify(zlib.gzip);
-const gunzip = promisify(zlib.gunzip);
 
 /**
  * Downloads a zip file for a specific iFlow from SAP CPI
@@ -31,80 +22,45 @@ const gunzip = promisify(zlib.gunzip);
  */
 async function downloadZipFile({ cpiBaseUrl, tokenUrl, clientId, clientSecret, packageId, iflowId }) {
     try {
-        console.log('=== DOWNLOAD ZIP FILE FUNCTION CALLED ===');
-        console.log('Parameters:', {
-            cpiBaseUrl: cpiBaseUrl ? '***' : 'missing',
-            tokenUrl: tokenUrl ? '***' : 'missing',
-            clientId: clientId ? '***' : 'missing',
-            clientSecret: clientSecret ? '***' : 'missing',
-            packageId,
-            iflowId
-        });
+        logInfo('downloadZipFile called', { packageId, iflowId });
 
         // Automatically append API path suffix to CPI Base URL
-        const baseUrl = cpiBaseUrl.endsWith('/api/v1') 
-            ? cpiBaseUrl 
+        const baseUrl = cpiBaseUrl.endsWith('/api/v1')
+            ? cpiBaseUrl
             : cpiBaseUrl.replace(/\/$/, '') + '/api/v1';
-        console.log('Constructed base URL:', baseUrl);
 
-        // Get Auth Token
-        console.log('Getting OAuth token...');
         const accessToken = await getOAuthToken(tokenUrl, clientId, clientSecret, null);
         const authHeader = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' };
 
-    /*    // Step 1: Fetch iFlow details to extract version
-        console.log('Step 1: Fetching iFlow details...');
-        const iflowUrl = `${baseUrl}/IntegrationPackages('${packageId}')/IntegrationDesigntimeArtifacts('${iflowId}')`;
-        let iflowData = null;
-
-        try {
-            const iflowResponse = await axios.get(iflowUrl, { headers: authHeader });
-            iflowData = iflowResponse.data;
-            console.log(`Successfully fetched iFlow: ${iflowData.Name}, Version: ${iflowData.Version}`);
-        } catch (error) {
-            const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
-            console.log(`Error fetching iFlow: ${errorMsg}`);
-            throw new Error(`Failed to fetch iFlow: ${errorMsg}`);
-        }
-*/
-        // Step 2: Download the iFlow zip file
-        console.log('Step 2: Downloading iFlow zip file...');
+        // Download the iFlow zip file using the 'active' version
+        logInfo('Downloading iFlow zip file', { iflowId });
         const iflowZipUrl = `${baseUrl}/IntegrationDesigntimeArtifacts(Id='${iflowId}',Version='active')/$value`;
-        console.log('Zip download URL:', iflowZipUrl);
         let zipContent = null;
 
         try {
-            const zipResponse = await axios.get(iflowZipUrl, { 
+            const zipResponse = await axios.get(iflowZipUrl, {
                 headers: authHeader,
                 responseType: 'arraybuffer'
             });
             zipContent = Buffer.from(zipResponse.data);
-            console.log(`Successfully downloaded iFlow zip file (${zipContent.length} bytes)`);
+            logInfo('iFlow zip file downloaded', { iflowId, size: zipContent.length });
         } catch (zipError) {
             const errorMsg = zipError.response ? JSON.stringify(zipError.response.data) : zipError.message;
-            console.log(`Error downloading iFlow zip file: ${errorMsg}`);
             throw new Error(`Failed to download iFlow zip file: ${errorMsg}`);
         }
 
-        console.log('✅ Zip file download complete.');
-        
         return {
             success: true,
             message: 'Zip file downloaded successfully!',
             details: {
                 packageId,
                 iflowId,
-                iflowName: iflowData.Name,
-                iflowVersion: iflowData.Version,
                 fileSize: zipContent.length
             }
         };
 
     } catch (error) {
-        console.log('=== DOWNLOAD ZIP FILE ERROR ===');
-        console.log('Error:', error.message);
-        console.log('Error stack:', error.stack);
-        
+        logError('downloadZipFile error', error);
         throw new Error(`Failed to download zip file: ${error.message}`);
     }
 }
@@ -119,7 +75,7 @@ async function runTransportJob(jobId) {
     
     try {
         // Get job data
-        const job = await db.getDownloadJobById(jobId);
+        const job = await db.getTransportJobById(jobId);
         logInfo('Job data retrieved', { jobId, status: job.status, hasFormData: !!job.form_data_json });
         
         const { formData } = JSON.parse(job.form_data_json);
@@ -163,11 +119,8 @@ async function runTransportJob(jobId) {
 
         try {
             // Update job to 'Running'
-            console.log('=== TRANSPORT JOB STARTING ===');
-            console.log('Job ID:', jobId);
-            console.log('Updating job status to Running...');
             await updateStatus(jobId, 'transport', 'Running');
-            console.log('Job status updated to Running');
+            logInfo('Job status updated to Running', { jobId });
 
             // Log job start
             logJobExecution('transport', jobId, 'Started', { projectName, environment, userName, sourcePackageId, targetPackageId, sourceIflowId, targetIflowId });
@@ -381,24 +334,20 @@ async function runTransportJob(jobId) {
             // Calculate time taken
             const timeTakenSeconds = Math.round((Date.now() - jobStartTime) / 1000);
 
-            // Close streams
             const { closeLogger, closeStream } = require('./shared/logger-helper.js');
             await closeStream(resultsStream);
             await closeLogger(logger);
 
             // Update job status with final progress
-            const updatedJob = await db.getDownloadJobById(jobId);
-            await db.updateDownloadJob(jobId, {
+            const updatedJob = await db.getTransportJobById(jobId);
+            await db.updateTransportJob(jobId, {
                 status: finalStatus,
                 progress: (finalStatus === 'Complete') ? updatedJob.total : progress
             });
 
             // Write to the transport_logs table - Always log, even if failed
             try {
-                console.log('=== INSERTING TRANSPORT LOG ===');
-                console.log('Final Status:', finalStatus);
-                console.log('Project Name:', projectName);
-                console.log('Environment:', environment);
+                logInfo('Inserting transport log', { finalStatus, projectName, environment });
                 
                 const transportLogData = {
                     projectName: projectName || 'Unknown',
@@ -423,27 +372,13 @@ async function runTransportJob(jobId) {
                     transportLogData.errorStackTrace = capturedError.stack || null;
                 }
 
-                console.log('Transport Log Data:', JSON.stringify(transportLogData, null, 2));
-
                 const transportLogId = await db.insertTransportLog(transportLogData);
-                console.log('Transport Log ID:', transportLogId);
 
                 // Link the transport log to the job
-                await db.updateDownloadJob(jobId, { log_id: transportLogId });
-                console.log('Linked transport log to job');
+                await db.updateTransportJob(jobId, { log_id: transportLogId });
 
-                logInfo('Transport log stored in database', { 
-                    jobId, 
-                    transportLogId, 
-                    finalStatus,
-                    logData: transportLogData 
-                });
-                console.log('=== TRANSPORT LOG INSERTION COMPLETE ===');
+                logInfo('Transport log stored in database', { jobId, transportLogId, finalStatus });
             } catch (logError) {
-                console.error('=== FAILED TO INSERT TRANSPORT LOG ===');
-                console.error('Error:', logError);
-                console.error('Error message:', logError.message);
-                console.error('Error stack:', logError.stack);
                 logError('Failed to write transport log to database', logError);
             }
         }
