@@ -1,5 +1,8 @@
 // server/cloud-logger.js
-const logging = require('@sap/logging');
+// NOTE: @sap/logging is required lazily inside initCloudLogging() so that the
+// module loads cleanly in any subaccount regardless of whether the SAP Cloud
+// Logging service is bound.  All log functions fall back to console output when
+// the service is unavailable.
 const xsenv = require('@sap/xsenv');
 const { v4: uuidv4 } = require('uuid');
 
@@ -20,39 +23,68 @@ const SENSITIVE_FIELDS = [
 
 /**
  * Initialize Cloud Logging
- * This should be called once at application startup
+ * This should be called once at application startup.
+ *
+ * Cloud Logging is OPTIONAL.  The function silently falls back to console
+ * logging whenever:
+ *  - the app is not running in Cloud Foundry (local dev)
+ *  - the Cloud Logging service instance is not bound to the app
+ *  - the @sap/logging package fails to initialise for any reason
+ *
+ * The app will NEVER fail to start because of a missing Cloud Logging binding.
  */
 function initCloudLogging() {
     try {
-        // Check if we're running in Cloud Foundry
-        if (process.env.VCAP_APPLICATION) {
-            // Get Cloud Logging service credentials
-            // First try by service name, then by tag as fallback
-            let services;
-            try {
-                services = xsenv.getServices({ cloudLogging: { name: 'cloud-logging-cloud-logging' } });
-            } catch (e) {
-                services = xsenv.getServices({ cloudLogging: { tag: 'logging' } });
-            }
-
-            if (services.cloudLogging) {
-                // Initialize the cloud logger
-                cloudLogger = logging.createLogger({
-                    name: 'sap-integration-automation',
-                    level: 'info'
-                });
-
-                isCloudLoggingAvailable = true;
-                console.log('✅ Cloud Logging initialized successfully');
-            } else {
-                console.log('⚠️  Cloud Logging service not found, using console logging');
-            }
-        } else {
-            console.log('ℹ️  Running locally, Cloud Logging not available');
+        // Only attempt cloud logging inside Cloud Foundry
+        if (!process.env.VCAP_APPLICATION) {
+            console.log('ℹ️  Running locally — Cloud Logging not available, using console logging');
+            return;
         }
+
+        // Check whether a Cloud Logging service instance is actually bound.
+        // Try by service instance name first, then fall back to the generic tag.
+        let services = null;
+        try {
+            services = xsenv.getServices({ cloudLogging: { name: 'cloud-logging-cloud-logging' } });
+        } catch (_e1) {
+            try {
+                services = xsenv.getServices({ cloudLogging: { tag: 'logging' } });
+            } catch (_e2) {
+                // No cloud-logging service bound in this subaccount — that is fine.
+                services = null;
+            }
+        }
+
+        if (!services || !services.cloudLogging) {
+            console.log('⚠️  Cloud Logging service not bound — using console logging');
+            return;
+        }
+
+        // Lazily require @sap/logging only when the service is confirmed bound.
+        // This prevents the module from crashing at load time in subaccounts
+        // that do not have the service subscribed.
+        let logging;
+        try {
+            logging = require('@sap/logging');
+        } catch (requireErr) {
+            console.warn('⚠️  @sap/logging could not be loaded — using console logging:', requireErr.message);
+            return;
+        }
+
+        // Initialise the SAP cloud logger
+        cloudLogger = logging.createLogger({
+            name: 'sap-integration-automation',
+            level: 'info'
+        });
+
+        isCloudLoggingAvailable = true;
+        console.log('✅ Cloud Logging initialized successfully');
+
     } catch (error) {
-        console.error('❌ Failed to initialize Cloud Logging:', error.message);
+        // Catch-all: never let a Cloud Logging failure crash the application
+        console.error('❌ Failed to initialize Cloud Logging (falling back to console):', error.message);
         isCloudLoggingAvailable = false;
+        cloudLogger = null;
     }
 }
 
@@ -128,15 +160,12 @@ function generateCorrelationId() {
  * @param {Object} metadata - Additional metadata to log
  */
 function logInfo(message, metadata = {}) {
-    const logEntry = createLogEntry('info', message, metadata);
-
     if (isCloudLoggingAvailable && cloudLogger) {
-        // @sap/logging v9 format: logger.info(message, ...args)
         cloudLogger.info(message, sanitizeData(metadata));
     }
 
-    // Console output for local development
-    if (process.env.NODE_ENV !== 'production') {
+    // Console output for local / non-cloud environments
+    if (!isCloudLoggingAvailable || process.env.NODE_ENV !== 'production') {
         console.log(`[INFO] ${message}`, sanitizeData(metadata));
     }
 }
@@ -154,13 +183,11 @@ function logError(message, error = {}) {
         code: error.code
     } : error;
 
-    const logEntry = createLogEntry('error', message, errorData);
-
     if (isCloudLoggingAvailable && cloudLogger) {
         cloudLogger.error(message, sanitizeData(errorData));
     }
 
-    // Always log errors to console
+    // Always log errors to console regardless of environment
     console.error(`[ERROR] ${message}`, sanitizeData(errorData));
 }
 
@@ -170,30 +197,22 @@ function logError(message, error = {}) {
  * @param {Object} metadata - Additional metadata to log
  */
 function logWarning(message, metadata = {}) {
-    const logEntry = createLogEntry('warning', message, metadata);
-
     if (isCloudLoggingAvailable && cloudLogger) {
-        cloudLogger.warning(message, sanitizeData(metadata));
+        // @sap/logging uses 'warn', not 'warning'
+        cloudLogger.warn(message, sanitizeData(metadata));
     }
 
-    if (process.env.NODE_ENV !== 'production') {
-        console.warn(`[WARNING] ${message}`, sanitizeData(metadata));
-    }
+    // Always log warnings to console regardless of environment
+    console.warn(`[WARNING] ${message}`, sanitizeData(metadata));
 }
 
 /**
- * Log debug message (only in development)
+ * Log debug message (only when LOG_LEVEL=debug or in non-production)
  * @param {string} message - The debug message
  * @param {Object} metadata - Additional metadata to log
  */
 function logDebug(message, metadata = {}) {
-
-
-
-
     if (LOG_LEVEL === 'debug' || process.env.NODE_ENV !== 'production') {
-        const logEntry = createLogEntry('debug', message, metadata);
-
         if (isCloudLoggingAvailable && cloudLogger) {
             cloudLogger.debug(message, sanitizeData(metadata));
         }

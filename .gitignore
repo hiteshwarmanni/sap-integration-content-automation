@@ -96,6 +96,7 @@ coverage/
 .eslintcache
 
 # Documentation files
+/mdFiles/
 CHANGES_SUMMARY.md
 DEPLOYMENT_GUIDE.md
 MIGRATION_COMPLETE.md

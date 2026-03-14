@@ -43,3 +43,7 @@
 
 # Deploy to cloud
 # cf push
+
+# to bind cloud logging service
+# cf bind-service intops-server cloud-logging-cloud-logging
+# cf restart intops-server

@@ -378,8 +378,8 @@ async function runTransportJob(jobId) {
                 await db.updateTransportJob(jobId, { log_id: transportLogId });
 
                 logInfo('Transport log stored in database', { jobId, transportLogId, finalStatus });
-            } catch (logError) {
-                logError('Failed to write transport log to database', logError);
+            } catch (error) {
+                logError('Failed to write transport log to database', error);
             }
         }
     } catch (error) {

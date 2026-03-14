@@ -333,8 +333,8 @@ router.post('/transport-iflow', authenticate, async (req, res) => {
                 logContent: `Transport failed at step: ${failedStep}\nError: ${errorMsg}`,
                 resultContent: `${TRANSPORT_CSV_HEADERS}\n"${req.body.sourcePackageId || ''}","${req.body.targetPackageId || ''}","${req.body.sourceIflowId || ''}","${req.body.targetIflowId || ''}","${httpStatus}","${errorMsg.replace(/"/g, '""')}"`
             });
-        } catch (logError) {
-            logError('Failed to save error transport log', logError);
+        } catch (error) {
+            logError('Failed to save error transport log', error);
         }
 
         res.status(500).json({ success: false, error: 'Failed to transport iFlow.', details: errorMsg, failedStep });

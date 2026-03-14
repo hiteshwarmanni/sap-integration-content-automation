@@ -288,6 +288,12 @@ function InTenantTransportPage({ projects: projectsProp, refreshTransportLogs })
       return dp[len1][len2];
     };
 
+    // Substring check: if one normalized ID is fully contained within the other,
+    // they are the same iFlow with an environment suffix (e.g. Demo_Day4 vs Demo_Day4.QA)
+    if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
+      return 100;
+    }
+
     const distance = levenshteinDistance(normalized1, normalized2);
     const maxLength = Math.max(normalized1.length, normalized2.length);
     
@@ -305,6 +311,7 @@ function InTenantTransportPage({ projects: projectsProp, refreshTransportLogs })
     // Calculate ID similarity using the existing calculateSimilarity function
     // This normalizes IDs by removing version/environment suffixes
     const idSimilarity = calculateSimilarity(sourceIflow.id, targetIflow.id);
+    const nameSimilarity = calculateSimilarity(sourceIflow.name, targetIflow.name);
     
     // Consider similar if ID similarity >= 85%
     const isSimilar = idSimilarity >= 85;
@@ -312,6 +319,7 @@ function InTenantTransportPage({ projects: projectsProp, refreshTransportLogs })
     return {
       isSimilar,
       idSimilarity,
+      nameSimilarity,
       sourceIflow,
       targetIflow
     };
@@ -471,17 +479,7 @@ function InTenantTransportPage({ projects: projectsProp, refreshTransportLogs })
       setAvailablePackages(data.packages);
       setSourcePackages(data.packages);
       setTargetPackages(data.packages);
-      
-      // For iFlow mode, auto-select and fetch iFlows
-      if (transportMode === 'iflow' && data.packages.length > 0) {
-        setSelectedSourcePackage(data.packages[0].id);
-        setSelectedTargetPackage(data.packages[0].id);
-        await fetchIflows(data.packages[0].id, true);
-        await fetchIflows(data.packages[0].id, false);
-      } else if (transportMode === 'package' && data.packages.length > 0) {
-        // For package mode, just select the first package as source
-        setSelectedSourcePackage(data.packages[0].id);
-      }
+      // No auto-selection — user must explicitly pick a package
     } catch (error) {
       console.error('Error fetching packages:', error);
       const errorMsg = error.response?.data?.error || 'Failed to fetch packages. Please check credentials.';
@@ -521,18 +519,10 @@ function InTenantTransportPage({ projects: projectsProp, refreshTransportLogs })
 
       if (isSource) {
         setAvailableSourceIflows(data.iflows);
-        if (data.iflows.length > 0) {
-          setSelectedSourceIflow(data.iflows[0].id);
-        } else {
-          setSelectedSourceIflow('');
-        }
+        setSelectedSourceIflow(''); // No auto-selection — user must pick
       } else {
         setAvailableTargetIflows(data.iflows);
-        if (data.iflows.length > 0) {
-          setSelectedTargetIflow(data.iflows[0].id);
-        } else {
-          setSelectedTargetIflow('');
-        }
+        setSelectedTargetIflow(''); // No auto-selection — user must pick
       }
     } catch (error) {
       console.error('Error fetching iFlows:', error);
@@ -857,18 +847,14 @@ function InTenantTransportPage({ projects: projectsProp, refreshTransportLogs })
                       <td style={{ 
                         padding: '12px 8px', 
                         color: '#333',
-                        wordBreak: 'break-word',
-                        fontFamily: 'monospace',
-                        fontSize: '0.9rem'
+                        wordBreak: 'break-word'
                       }}>
                         {warningDetails.sourceIflow.id}
                       </td>
                       <td style={{ 
                         padding: '12px 8px', 
                         color: '#333',
-                        wordBreak: 'break-word',
-                        fontFamily: 'monospace',
-                        fontSize: '0.9rem'
+                        wordBreak: 'break-word'
                       }}>
                         {warningDetails.targetIflow.id}
                       </td>
@@ -1343,6 +1329,16 @@ function InTenantTransportPage({ projects: projectsProp, refreshTransportLogs })
 
             <div className="form-group">
               <label>Target Package *</label>
+              {loadingPackages && (
+                <div style={{ padding: '1rem', textAlign: 'center', color: '#666', border: '1px solid #ddd', borderRadius: '6px' }}>
+                  Loading packages...
+                </div>
+              )}
+              {packageError && (
+                <div style={{ padding: '0.75rem', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: '6px', color: '#856404', marginBottom: '0.5rem' }}>
+                  {packageError}
+                </div>
+              )}
               {!loadingPackages && targetPackages.length > 0 && (
                 <SearchableDropdown
                   value={selectedTargetPackage}
@@ -1546,8 +1542,6 @@ function InTenantTransportPage({ projects: projectsProp, refreshTransportLogs })
                         </td>
                         <td style={{ 
                           padding: '10px 8px',
-                          fontFamily: 'monospace',
-                          fontSize: '0.8rem',
                           color: '#333',
                           wordBreak: 'break-word',
                           backgroundColor: validationResult.sourceIflow.id !== validationResult.targetIflow.id ? '#fff9c4' : 'transparent'
@@ -1556,8 +1550,6 @@ function InTenantTransportPage({ projects: projectsProp, refreshTransportLogs })
                         </td>
                         <td style={{ 
                           padding: '10px 8px',
-                          fontFamily: 'monospace',
-                          fontSize: '0.8rem',
                           color: '#333',
                           wordBreak: 'break-word',
                           backgroundColor: validationResult.sourceIflow.id !== validationResult.targetIflow.id ? '#fff9c4' : 'transparent'
